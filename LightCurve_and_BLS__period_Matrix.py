@@ -65,7 +65,7 @@ def getNumericSaxArray(centroids = []):
     return numeric_SAX_array 
      
     
-## fucntion for chooseing alfabet converter
+## function for choosing alfabet converter
 def getAlfabetToNumericConverter(saxString):
     if saxString == "a" :
         return  numericSaxConversionArray[0] 

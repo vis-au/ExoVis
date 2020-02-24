@@ -140,13 +140,15 @@ dat_znorm = stats.zscore(fluxes)
 for alphabet_size in range(3, 20):
     for paa_division_integer in range(1, 15):
         
-        #PAA transformation - 
+        ###PAA transformation procedure
+        #Determine number of PAA points from the datasize devided by the paa_division_integer(number of points per segment) 
         paa_points = int(dat_size/paa_division_integer)
         
         ## PAA transformation of data
         PAA_array = paa(dat_znorm, paa_points)
         PAA_array = np.asarray(PAA_array)
         PAA_array = np.float32(PAA_array)
+        # Get breakpoints to convert segments into SAX string
         breakPointsArray = getBreakPointsArray(PAA_array, alphabet_size)
         sax_output = ts_to_string(PAA_array, breakPointsArray)
 

@@ -125,7 +125,7 @@ period_array = []
 import lightkurve as lk
 ## Search for lightcurve file of Exoplanet with LightKurve library - choose the corrected PDCSAP_FLUX and remove NaNs
 
-lc = lk.search_lightcurvefile('kepler-8', quarter=0).download().PDCSAP_FLUX.remove_nans()
+lc = lk.search_lightcurvefile('kepler-8', quarter=1).download().PDCSAP_FLUX.remove_nans()
 fluxes = lc.flux
 time = lc.time
 

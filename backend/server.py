@@ -13,34 +13,34 @@ import os
 import platform
 import random
 import sys
-# import lightkurve as lk
+import lightkurve as lk
 import eel
 
 import math
-# import matplotlib.pyplot as plt
-# import altair as alt
+import matplotlib.pyplot as plt
+import altair as alt
 import numpy as np
 import pandas as pd
 from scipy import signal
 
 # Astropy, Mast, LightKurve libraries
-# from astropy.io import fits
-# from astropy.table import Table
-# import matplotlib.pyplot as plt
+from astropy.io import fits
+from astropy.table import Table
+import matplotlib.pyplot as plt
 from scipy import stats
-# from astroquery.mast import Mast
-# from astroquery.mast import Observations
-# from astropy import units as u
-# from astropy.timeseries import BoxLeastSquares
+from astroquery.mast import Mast
+from astroquery.mast import Observations
+from astropy import units as u 
+from astropy.timeseries import BoxLeastSquares
 
 #for sax conversion
-# from saxpy.znorm import znorm
-# from saxpy.paa import paa
-# from saxpy.sax import ts_to_string
-# from saxpy.alphabet import cuts_for_asize
-# from saxpy.sax import sax_via_window
+from saxpy.znorm import znorm
+from saxpy.paa import paa
+from saxpy.sax import ts_to_string
+from saxpy.alphabet import cuts_for_asize
+from saxpy.sax import sax_via_window
 
-# from astropy.timeseries import TimeSeries
+from astropy.timeseries import TimeSeries
 from time import process_time
 import time
 
@@ -51,7 +51,8 @@ def run_exo_vis():
     print("building period matrix ...")
 
     #array with periods for each parameter combination for PAA/SAX
-    period_array = []
+    period_array = np.ones(238, dtype=int)
+    period_array = [element * 5 for element in period_array]
 
     ## Search for lightcurve file of Exoplanet with LightKurve library - choose the corrected PDCSAP_FLUX and remove NaNs
 
@@ -66,6 +67,7 @@ def run_exo_vis():
     dat_size= fluxes.size
     #Z-Normalize data
     dat_znorm = stats.zscore(fluxes)
+    cell_counter = 0
 
     for alphabet_size in range(3, 20):
         for segment_size in range(1, 15):
@@ -115,12 +117,16 @@ def run_exo_vis():
             #Find period with highest power in periodogram
             best_period = np.argmax(periodogram.power)
             period = periodogram.period[best_period]
-            period_array.append(period)
-
+            #period_array.append(period)
+            period_array[cell_counter]=period
+            if(cell_counter % 5 ==0):
+               loadData(period_array)
+            cell_counter +=1
+    loadData(period_array)
     print("done building period matrix")
 
-    x, y = np.meshgrid(range(1, 15),range(3, 20))
-
+    """
+     x, y = np.meshgrid(range(1, 15),range(3, 20))
     # Subtract by actual period and round down each value in array
     periods = np.asarray(period_array) - actual_period
     periods = np.around(periods, decimals = 6)
@@ -130,7 +136,8 @@ def run_exo_vis():
                         'SAX_Alfabet_size': y.ravel(),
                         'z': periods})
 
-    eel.send_data_to_frontend(source)
+    #eel.send_data_to_frontend(source)
+    """
 
 def get_cell_order(columns, rows):
     cell_order = []
@@ -171,9 +178,10 @@ def send_progressive_updates(cell_order, counter):
     return counter
 
 
-def loadData():
-    data = np.load("./data/mean_period_arr_100%.npy")
-    print(data.tolist())
+def loadData(data_arr):
+    data = np.asarray(data_arr) #np.load("./data/mean_period_arr_100%.npy")
+    #print(data)
+    #print(data.tolist())
     eel.send_data(data.tolist())
 
 @eel.expose
@@ -183,7 +191,8 @@ def register_client(message):
     starttime = time.time()
     interval = 0.25
 
-    loadData()
+    run_exo_vis()
+    #loadData()
 
     # cell_order = get_cell_order(10, 10)
     # progressiveness_counter = 0

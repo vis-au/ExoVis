@@ -51,93 +51,94 @@ def run_exo_vis():
     print("building period matrix ...")
 
     #array with periods for each parameter combination for PAA/SAX
-    period_array = np.ones(238, dtype=int)
+    period_array = np.ones(168)
     period_array = [element * 5 for element in period_array]
-
+    loadData(period_array)
     ## Search for lightcurve file of Exoplanet with LightKurve library - choose the corrected PDCSAP_FLUX and remove NaNs
 
-    lc = lk.search_lightcurvefile('kepler-8', quarter=0).download().PDCSAP_FLUX.remove_nans()
-    fluxes = lc.flux
-    time = lc.time
-
-    actual_period = 3.5224 ## found in NASA Database: https://exoplanetarchive.ipac.caltech.edu/cgi-bin/DisplayOverview/nph-DisplayOverview?objname=K00010.01&type=KEPLER_CANDIDATE
-    actual_duration_hours =3.1984  ## found in NASA Database: https://exoplanetarchive.ipac.caltech.edu/cgi-bin/DisplayOverview/nph-DisplayOverview?objname=K00010.01&type=KEPLER_CANDIDATE
-    actual_duration_days=  0.13327 #3.19843/24
-
-    dat_size= fluxes.size
-    #Z-Normalize data
-    dat_znorm = stats.zscore(fluxes)
+    #download or use downloaded lightcurve files
+    time_flux_tuple_arr = pm.get_lightcurve_data()
+    #get ground truth values for all lc's with autocorrelation 
+    ground_truth_arr= pm.get_ground_truth_values(time_flux_tuple_arr)
+    #transform durations from exoplanet archieve from hours to days
+    actual_duration_arr=[3.88216/24, 2.36386/24, 3.98235/24 , 4.56904/24 ,3.60111/24, 5.16165/24, 3.19843/24 ] ##kepler-2,3,4,5,6,7,8 https://exoplanetarchive.ipac.caltech.edu/cgi-bin/TblView/nph-tblView?app=ExoTbls&config=cumulative
+    #array with periods for each parameter combination for PAA/SAX 
+    periods = np.ones(168)
+    periods = [element * 100 for element in periods]
+    #mean array of periods
+    mean_period_arr = []
+    #Counter to keep count which combination of Paa/SAX is being calculated
     cell_counter = 0
 
-    for alphabet_size in range(3, 20):
-        for segment_size in range(1, 15):
+    #calculate matrix values for all lighcurves
+    for i in range(len (time_flux_tuple_arr)):
+        # get flux, time, and ground thruth for i'th tuple
+        ground_truth_period = ground_truth_arr[i]
+        time_flux_tuple = time_flux_tuple_arr[i]
+        time = time_flux_tuple[0]
+        norm_fluxes = time_flux_tuple[1]
+        dat_size = norm_fluxes.size
+        cell_counter = 0
+        for alphabet_size in range(3, 15): 
+            for paa_division_integer in range(1, 15):
+                ###PAA transformation procedure
+                #Determine number of PAA points from the datasize devided by the paa_division_integer(number of points per segment) 
+                paa_points = int(dat_size/paa_division_integer)
+                
+                ## PAA transformation of data
+                PAA_array = paa(norm_fluxes, paa_points)
+                PAA_array = np.asarray(PAA_array)
+                PAA_array = np.float32(PAA_array)
+                # Get breakpoints to convert segments into SAX string
+                breakPointsArray = pm.getBreakPointsArray(PAA_array, alphabet_size)
+                sax_output = ts_to_string(PAA_array, breakPointsArray)
+                ## Convert to numeric representation 
+                numericSaxConversionArray = pm.getNumericSaxArray(breakPointsArray)
+                numeric_SAX_flux = []
+                for sout in range(len(sax_output)):
+                    letter_represented_as_int = pm.getAlfabetToNumericConverter(sax_output[sout], numericSaxConversionArray)
+                    numeric_SAX_flux.append(letter_represented_as_int)
+                numeric_SAX_flux= np.asarray(numeric_SAX_flux)
+                numeric_SAX_flux = np.float32(numeric_SAX_flux)
+                numeric_SAX_time = time
+                # Repeat each element in array x times, where x is the number of PAA points
+                repeated_x_array= np.repeat(numeric_SAX_time,paa_points)
+                # How many elements each list should have 
+                n = int(len(repeated_x_array)/paa_points)
+                final_x_array=[]
+                lists = list(pm.divide_array_in_chunks(repeated_x_array, n)) 
+                #take mean of all chunks
+                for l in lists:
+                    final_x_array.append(np.mean(l))                                 
+                numeric_SAX_time= final_x_array
 
-            ###PAA transformation procedure
-            #Determine number of PAA points from the datasize devided by the segment_size(number of points per segment)
-            paa_points = int(dat_size/segment_size)
+                ## PERIODOGRAM FOR NUMERIC SAX REPRESENTATION
+                BLS = BoxLeastSquares(numeric_SAX_time, numeric_SAX_flux)
+                periodogram = BLS.autopower(actual_duration_arr[i])
+                #Find period with highest power in periodogram
+                best_period = np.argmax(periodogram.power)  
+                period = periodogram.period[best_period]
+                #Add error in percentage between best peiord and ground truth to array with periods
+                ground_truth_error = (abs(period - ground_truth_period) / ground_truth_period)*100
+                periods[cell_counter] = ground_truth_error
+                #Update mean periods array
+                if(len(mean_period_arr) <= cell_counter ):
+                    mean_period_arr.append( ground_truth_error) # append array is empty - on first iteration
+                else:
+                    #Update mean of particualr parameter combination
+                    mean_period_arr[cell_counter] = (mean_period_arr[cell_counter] * i + ground_truth_error)/(i+1)
+                #Send mean periods array data to server every 4th iteration with loadData()
+                if(cell_counter % 4 ==0):
+                    #if(len(mean_period_arr) == 168): 
+                    loadData(mean_period_arr) #load mean period array if full
+                    #else:
+                    #    loadData(periods) #load period array on the first iteration
+                cell_counter +=1
 
-            ## PAA transformation of data
-            PAA_array = paa(dat_znorm, paa_points)
-            PAA_array = np.asarray(PAA_array)
-            PAA_array = np.float32(PAA_array)
-            # Get breakpoints to convert segments into SAX string
-            breakPointsArray = pm.getBreakPointsArray(PAA_array, alphabet_size)
-            sax_output = ts_to_string(PAA_array, breakPointsArray)
-
-            ## Convert to numeric representation
-            numericSaxConversionArray = pm.getNumericSaxArray(breakPointsArray)
-            numeric_SAX_flux = []
-
-            for i in range(len(sax_output)):
-                letter_represented_as_int = pm.getAlfabetToNumericConverter(sax_output[i], numericSaxConversionArray)
-                numeric_SAX_flux.append(letter_represented_as_int)
-
-            numeric_SAX_flux= np.asarray(numeric_SAX_flux)
-            numeric_SAX_flux = np.float32(numeric_SAX_flux)
-
-            numeric_SAX_time = time
-            # Repeat each element in array x times, where x is the number of PAA points
-            repeated_x_array= np.repeat(numeric_SAX_time,paa_points)
-            # How many elements each list should have
-            n = int(len(repeated_x_array)/paa_points)
-            final_x_array=[]
-            lists = list(pm.divide_array_in_chunks(repeated_x_array, n))
-            #take mean of all chunks
-            for l in lists:
-                final_x_array.append(np.mean(l))
-            numeric_SAX_time= final_x_array
-
-
-            if(alphabet_size==11 and segment_size== 11):
-                print("halfway done with computation!")
-
-            ## PERIODOGRAM FOR NUMERIC SAX REPRESENTATION
-            BLS = BoxLeastSquares(numeric_SAX_time, numeric_SAX_flux)
-            periodogram = BLS.autopower(actual_duration_days)
-            #Find period with highest power in periodogram
-            best_period = np.argmax(periodogram.power)
-            period = periodogram.period[best_period]
-            #period_array.append(period)
-            period_array[cell_counter]=period
-            if(cell_counter % 5 ==0):
-               loadData(period_array)
-            cell_counter +=1
-    loadData(period_array)
-    print("done building period matrix")
-
-    """
-     x, y = np.meshgrid(range(1, 15),range(3, 20))
-    # Subtract by actual period and round down each value in array
-    periods = np.asarray(period_array) - actual_period
-    periods = np.around(periods, decimals = 6)
-
-    # Convert this grid to columnar data expected by Altair
-    source = pd.DataFrame({'PAA_division_Int': x.ravel(),
-                        'SAX_Alfabet_size': y.ravel(),
-                        'z': periods})
-
-    #eel.send_data_to_frontend(source)
-    """
+        periods = np.ones(168)
+        periods = [element * 100 for element in periods]
+        loadData(mean_period_arr)
+        print("matrix " + str(i) + " finsihed")
 
 def get_cell_order(columns, rows):
     cell_order = []
@@ -180,8 +181,6 @@ def send_progressive_updates(cell_order, counter):
 
 def loadData(data_arr):
     data = np.asarray(data_arr) #np.load("./data/mean_period_arr_100%.npy")
-    #print(data)
-    #print(data.tolist())
     eel.send_data(data.tolist())
 
 @eel.expose

@@ -6,6 +6,11 @@
 
 import numpy as np
 from sklearn.cluster import KMeans
+import string
+import lightkurve as lk
+from scipy import stats
+from astropy.timeseries import BoxLeastSquares
+
 
 def getBreakPointsArray(dat_Paa_array, number_of_breakpoints):
     #2d array simulting 1d - Kmeans takes 2d array as input
@@ -37,7 +42,18 @@ def getNumericSaxArray(centroids = []):
     return numeric_SAX_array
 
 
+
 ## function for choosing alfabet converter
+alphabet_string = string.ascii_lowercase
+alphabet_list = list(alphabet_string)
+
+## function for choosing alfabet converter
+def getAlfabetToNumericConverter(saxString, numeric_sax_conversion_array):
+    numericSaxConversionArray = numeric_sax_conversion_array
+    res = [let for let in alphabet_list if let == saxString]
+    return numericSaxConversionArray[alphabet_list.index(res[0])]
+
+"""
 def getAlfabetToNumericConverter(saxString, numericSaxConversionArray):
     if saxString == "a" :
         return  numericSaxConversionArray[0]
@@ -83,8 +99,54 @@ def getAlfabetToNumericConverter(saxString, numericSaxConversionArray):
         return numericSaxConversionArray[20]
     if saxString == "v":
         return numericSaxConversionArray[21]
-
+"""
 def divide_array_in_chunks(list_, elements_in_chunks):
         # looping till length l
         for i in range(0, len(list_), elements_in_chunks):
             yield list_[i:i + elements_in_chunks]
+
+ids_of_exoplanets_to_download= [2,3,4,5,6,7]
+time_flux_tuple_arr =[]
+
+def get_lightcurve_data():
+    try: 
+        time_flux_tuple_arr = np.load('./time_flux_tuple_arr.npy')
+    except: 
+        print("Lightcurve data is not downloaded")
+        print("Downloading Lightcurve data")
+        #Download Lighcurve data
+        for i in ids_of_exoplanets_to_download:
+            kepler_name = "kepler-"+str(i)
+            lc = lk.search_lightcurvefile(kepler_name, quarter=0).download().PDCSAP_FLUX.remove_nans()
+            time = lc.time    
+            fluxes = lc.flux
+            norm_fluxes = stats.zscore(fluxes)
+            time_flux_tuple = (time, norm_fluxes)
+            time_flux_tuple_arr.append(time_flux_tuple)    
+            print("finished downloading " + kepler_name)
+        np.save('./time_flux_tuple_arr', time_flux_tuple_arr)
+    return time_flux_tuple_arr
+
+
+
+
+#transform durations from exoplanet archieve from hours to days
+actual_duration_arr=[3.88216/24, 2.36386/24, 3.98235/24 , 4.56904/24 ,3.60111/24, 5.16165/24, 3.19843/24 ] ##kepler-2,3,4,5,6,7,8 https://exoplanetarchive.ipac.caltech.edu/cgi-bin/TblView/nph-tblView?app=ExoTbls&config=cumulative
+
+def get_ground_truth_values(time_flux_tuple_values):
+    time_flux_tuple_arr = time_flux_tuple_values
+    counter=0
+    ground_truth_arr=[]
+    #get ground truth values for all lc's with BLS 
+    for time_flux_tuple in time_flux_tuple_arr:
+        counter +=1
+        time = time_flux_tuple[0]
+        norm_fluxes = time_flux_tuple[1]
+        ## PERIODOGRAM FOR NUMERIC SAX REPRESENTATION
+        BLS = BoxLeastSquares(time, norm_fluxes)
+        periodogram = BLS.autopower(actual_duration_arr[counter])
+        #Find period with highest power in periodogram
+        best_period = np.argmax(periodogram.power)  
+        period = periodogram.period[best_period]  
+        ground_truth_arr.append(period)
+    return ground_truth_arr

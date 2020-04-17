@@ -221,7 +221,7 @@ function sendDataToFrontend(next_chunk) {
 
   // update matrix
   view.then(view => {
-    view.insert("imdb", new_values).run();
+    view.insert("timeseries", new_values).run();
   });
 }
 

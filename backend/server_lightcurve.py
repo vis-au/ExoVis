@@ -50,15 +50,13 @@ import period_matrix as pm
 from pyDOE import *
 from scipy.stats.distributions import norm
 
-
 #Contains tuples with parameter combination of selected cells
 selected_cells = []
 
 def run_exo_vis():
     print("Building period matrix ...")
-
+    
     global selected_cells
-
     #Download or use downloaded lightcurve files
     time_flux_tuple_arr = pm.get_lightcurve_data()
     #get ground truth values for all lc's with autocorrelation
@@ -92,14 +90,14 @@ def run_exo_vis():
 
         # Do Latin-Hypercube sampling
         lhs_array = lhs(1, samples=168, criterion='center')
-        #Sort Latin-Hypercube array
+        #Sort Latin-Hypercube array 
         lhs_array_sorted = np.argsort(lhs_array.flatten())
         lhs_final = []
         #Add values of the cells array to lhs_final by using idexes from sorted Latin-Hypercube array
         for index in range(168) :
             lhs_final.append(cells[lhs_array_sorted[index]])
         cells = lhs_final
-
+        
         #Find cells selected and put in front of array
         for selected_cell in selected_cells:
             #Remove and append to front of cells array
@@ -117,12 +115,12 @@ def run_exo_vis():
             ## PAA transformation of data
             PAA_array = paa(norm_fluxes, paa_points)
             PAA_array = np.asarray(PAA_array, dtype=np.float32)
-
+            
             #SAX conversion
             # Get breakpoints to convert segments into SAX string
             breakPointsArray = pm.getBreakPointsArray(PAA_array, alphabet_size)
             sax_output = ts_to_string(PAA_array, breakPointsArray)
-
+            
             # Convert to numeric SAX representation
             numericSaxConversionArray = pm.getNumericSaxArray(breakPointsArray)
             numeric_SAX_flux = []
@@ -148,7 +146,7 @@ def run_exo_vis():
             #Find period with highest power in periodogram
             best_period = np.argmax(periodogram.power)
             period = periodogram.period[best_period]
-
+            
             #Add error in percentage between best peiord and ground truth to array with periods
             ground_truth_error = (abs(period - ground_truth_period) / ground_truth_period)*100
             #Update mean periods array
@@ -159,13 +157,12 @@ def run_exo_vis():
                 current_value = matrix[alphabet_size - 3][paa_division_integer - 1]
                 matrix[alphabet_size - 3][paa_division_integer - 1] = (current_value * i + ground_truth_error) / (i+1)
             #Update progression of cell in percentage
-            progression_matrix[alphabet_size - 3][paa_division_integer - 1] += (1/len(ground_truth_arr))*100 
+            progression_matrix[alphabet_size - 3][paa_division_integer - 1] += (1/len(ground_truth_arr)) 
             #Send mean periods array data to server every 2th iteration with loadData()
             if(cell_counter % 2 ==0):
-                loadData(matrix.flatten()) #load mean period array if full
+                loadData(matrix.flatten(), np.mean(progression_matrix, axis=0) , np.mean(progression_matrix, axis=1) ) #load mean period array if full
             cell_counter +=1
-        loadData(matrix.flatten())
-        print(progression_matrix)
+        loadData(matrix.flatten(), np.mean(progression_matrix, axis=0) , np.mean(progression_matrix, axis=1) ) #load mean period array if full
         print("matrix ", i, " finished")
 
 def get_cell_order(columns, rows):
@@ -206,11 +203,14 @@ def send_progressive_updates(cell_order, counter):
     eel.send_data_to_frontend(updated_data)
     return counter
 
-
-
-def loadData(data_arr):
-    data = np.asarray(data_arr)
-    eel.send_data(data.tolist())
+def loadData(data_arr, avg_progression_columns, avg_progression_rows):
+#def loadData(data_arr):
+    data_dic = {}
+    data_dic["matrix" ]= data_arr.tolist()
+    data_dic["progression_column" ]= avg_progression_columns.tolist()
+    data_dic["progression_row" ]= avg_progression_rows.tolist()
+    #eel.send_data(data.tolist())
+    eel.send_data(data_dic)
 
 @eel.expose
 def send_selected_cells(new_selected_cells):

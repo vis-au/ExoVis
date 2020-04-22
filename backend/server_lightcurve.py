@@ -63,7 +63,9 @@ def run_exo_vis():
     mean_period_arr = []
     #Initialize 12*14 matrix to store data being send to frontend
     matrix = np.array([[0.0 for j in range(14)] for _ in range(12)])
-
+    #Matrix to show progression of each cell in percentage
+    progression_matrix = matrix.copy()
+    
     #Calculate matrix values for all lighcurves
     for i in range(len (time_flux_tuple_arr)):
         # get flux, time, duration and ground thruth for i'th tuple
@@ -153,11 +155,14 @@ def run_exo_vis():
                 #Update mean of particualr parameter combination
                 current_value = matrix[alphabet_size - 3][paa_division_integer - 1]
                 matrix[alphabet_size - 3][paa_division_integer - 1] = (current_value * i + ground_truth_error) / (i+1)
+            #Update progression of cell in percentage
+            progression_matrix[alphabet_size - 3][paa_division_integer - 1] += (1/len(ground_truth_arr))*100 
             #Send mean periods array data to server every 2th iteration with loadData()
             if(cell_counter % 2 ==0):
                 loadData(matrix.flatten()) #load mean period array if full
             cell_counter +=1
         loadData(matrix.flatten())
+        print(progression_matrix)
         print("matrix ", i, " finished")
 
 def get_cell_order(columns, rows):
@@ -197,6 +202,7 @@ def send_progressive_updates(cell_order, counter):
 
     eel.send_data_to_frontend(updated_data)
     return counter
+
 
 
 def loadData(data_arr):

@@ -18,6 +18,8 @@ const barSize = 100;
 const paddingX = 30;
 const paddingY = 50;
 
+const selectedCells = [];
+
 const scaleX = d3.scaleLinear()
   .domain([0, MAX_PAA])
   .range([paddingX, MATRIX_WIDTH - barSize - paddingX]);
@@ -48,6 +50,24 @@ function render(listData) {
   renderBars(meanXProgress, meanYProgress);
 }
 
+function toggleSelectedCell(cell) {
+  const indexInSelected = getIndexInSelected(cell);
+
+  if (indexInSelected === -1) {
+    selectedCells.push(cell);
+  } else {
+    selectedCells.splice(indexInSelected, 1);
+  }
+}
+
+function getIndexInSelected(cell) {
+  const { alpha, omega } = cell;
+
+  return selectedCells.findIndex(selectedCell => {
+    return selectedCell.alpha === alpha && selectedCell.omega === omega;
+  });
+}
+
 function updateMatrix(data) {
 
   svg.selectAll("g.matrix").remove();
@@ -61,7 +81,9 @@ function updateMatrix(data) {
     .attr("width", xStep)
     .attr("height", yStep)
     .attr("fill", d => color(d.error))
-    .attr("stroke", "none");
+    .attr("stroke-width", 5)
+    .attr("stroke", d => getIndexInSelected(d) > -1 ? "red" : "none")
+    .on("click", toggleSelectedCell);
 
   matrix.selectAll("text.label").data(data).join("text")
     .attr("class", "label")
@@ -130,7 +152,9 @@ function renderBars(meanXProgress, meanYProgress) {
     .attr("transform")
 }
 
-render(getDummyData());
+setInterval(() => {
+  render(getDummyData());
+}, 500);
 
 
 /**

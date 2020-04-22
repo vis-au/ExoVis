@@ -50,6 +50,14 @@ function render(listData) {
   renderBars(meanXProgress, meanYProgress);
 }
 
+function notifyBackendSelectedCells() {
+  const normalizedCells = selectedCells.map(cell => {
+    return [cell.alpha, cell.omega];
+  });
+
+  window.eel.send_selected_cells(normalizedCells);
+}
+
 function toggleSelectedCell(cell) {
   const indexInSelected = getIndexInSelected(cell);
 
@@ -59,6 +67,7 @@ function toggleSelectedCell(cell) {
     selectedCells.splice(indexInSelected, 1);
   }
 
+  notifyBackendSelectedCells();
   updateSelectedCellStatus();
 }
 
@@ -86,6 +95,7 @@ function selectColumn(columnIndex) {
     });
   }
 
+  notifyBackendSelectedCells();
   updateSelectedCellStatus();
 }
 
@@ -113,6 +123,7 @@ function selectRow(rowIndex) {
     });
   }
 
+  notifyBackendSelectedCells();
   updateSelectedCellStatus();
 }
 
@@ -216,9 +227,9 @@ function renderBars(meanColumnProgress, meanRowProgress) {
     .attr("transform")
 }
 
-setInterval(() => {
-  render(getDummyData());
-}, 500);
+// setInterval(() => {
+//   render(getDummyData());
+// }, 500);
 
 
 /**

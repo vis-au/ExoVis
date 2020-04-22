@@ -58,6 +58,67 @@ function toggleSelectedCell(cell) {
   } else {
     selectedCells.splice(indexInSelected, 1);
   }
+
+  updateSelectedCellStatus();
+}
+
+function selectColumn(columnIndex) {
+  const omega = columnIndex;
+  let allCellsAreSelected = true;
+  let noCellsAreSelected = false;
+
+  d3.range(3, MAX_SAX + 1).forEach(alpha => {
+    const index = getIndexInSelected({ alpha, omega });
+    allCellsAreSelected = allCellsAreSelected && index > -1;
+    noCellsAreSelected = noCellsAreSelected && index === -1;
+  });
+
+  if (allCellsAreSelected || noCellsAreSelected) {
+    d3.range(3, MAX_SAX + 1).forEach(alpha => {
+      toggleSelectedCell({ alpha, omega });
+    });
+  } else {
+    d3.range(3, MAX_SAX + 1).forEach(alpha => {
+      const index = getIndexInSelected({ alpha, omega });
+      if (index === -1) {
+        toggleSelectedCell({ alpha, omega });
+      }
+    });
+  }
+
+  updateSelectedCellStatus();
+}
+
+function selectRow(rowIndex) {
+  const alpha = rowIndex + 3;
+  let allCellsAreSelected = true;
+  let noCellsAreSelected = false;
+
+  d3.range(1, MAX_PAA).forEach(omega => {
+    const index = getIndexInSelected({ alpha, omega });
+    allCellsAreSelected = allCellsAreSelected && index > -1;
+    noCellsAreSelected = noCellsAreSelected && index === -1;
+  });
+
+  if (allCellsAreSelected || noCellsAreSelected) {
+    d3.range(0, MAX_PAA).forEach(omega => {
+      toggleSelectedCell({ alpha, omega });
+    });
+  } else {
+    d3.range(0, MAX_PAA).forEach(omega => {
+      const index = getIndexInSelected({ alpha, omega });
+      if (index === -1) {
+        toggleSelectedCell({ alpha, omega });
+      }
+    });
+  }
+
+  updateSelectedCellStatus();
+}
+
+function updateSelectedCellStatus() {
+  svg.selectAll("rect.cell")
+    .attr("stroke", d => getIndexInSelected(d) > -1 ? "white" : "none")
 }
 
 function getIndexInSelected(cell) {
@@ -82,8 +143,9 @@ function updateMatrix(data) {
     .attr("height", yStep)
     .attr("fill", d => color(d.error))
     .attr("stroke-width", 5)
-    .attr("stroke", d => getIndexInSelected(d) > -1 ? "red" : "none")
     .on("click", toggleSelectedCell);
+
+  updateSelectedCellStatus();
 
   matrix.selectAll("text.label").data(data).join("text")
     .attr("class", "label")
@@ -121,7 +183,7 @@ function renderAxes() {
 
 const barScale = d3.scaleLinear().domain([0, 1]).range([0, barSize]);
 
-function renderBars(meanXProgress, meanYProgress) {
+function renderBars(meanColumnProgress, meanRowProgress) {
   const barColor = "#afafaf";
   const barStroke = "#ccc";
 
@@ -130,23 +192,25 @@ function renderBars(meanXProgress, meanYProgress) {
   const barsX = svg.append("g").attr("class", "bars x");
   const barsY = svg.append("g").attr("class", "bars y");
 
-  barsX.selectAll("rect.bar.x").data(meanXProgress).join("rect")
+  barsX.selectAll("rect.bar.x").data(meanColumnProgress).join("rect")
     .attr("class", "bar x")
     .attr("x", (d, i) => scaleX(i))
     .attr("y", d => barSize + paddingY - barScale(d))
     .attr("width", xStep)
     .attr("height", d => barScale(d))
     .attr("fill", barColor)
-    .attr("stroke", barStroke);
+    .attr("stroke", barStroke)
+    .on("click", (d, i) => selectColumn(i));
 
-  barsY.selectAll("rect.bar.y").data(meanYProgress).join("rect")
+  barsY.selectAll("rect.bar.y").data(meanRowProgress).join("rect")
     .attr("class", "bar y")
     .attr("x", scaleX(scaleX.domain()[1]))
     .attr("y", (d, i) => scaleY(i + 3))
     .attr("width", d => barScale(d))
     .attr("height", yStep)
     .attr("fill", barColor)
-    .attr("stroke", barStroke);
+    .attr("stroke", barStroke)
+    .on("click", (d, i) => selectRow(i));
 
   barsX.append("text")
     .attr("transform")

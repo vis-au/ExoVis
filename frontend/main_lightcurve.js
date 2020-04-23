@@ -87,18 +87,18 @@ function toggleSelectedCell(cell) {
 }
 
 function selectColumn(columnIndex) {
-  const omega = columnIndex;
+  const omega = columnIndex + MIN_PAA;
   let allCellsAreSelected = true;
   let noCellsAreSelected = false;
 
-  d3.range(3, MAX_SAX + 1).forEach(alpha => {
+  d3.range(MIN_SAX, MAX_SAX + 1).forEach(alpha => {
     const index = getIndexInSelected({ alpha, omega });
     allCellsAreSelected = allCellsAreSelected && index > -1;
     noCellsAreSelected = noCellsAreSelected && index === -1;
   });
 
   if (allCellsAreSelected || noCellsAreSelected) {
-    d3.range(3, MAX_SAX + 1).forEach(alpha => {
+    d3.range(MIN_SAX, MAX_SAX + 1).forEach(alpha => {
       toggleSelectedCell({ alpha, omega });
     });
   } else {
@@ -115,7 +115,7 @@ function selectColumn(columnIndex) {
 }
 
 function selectRow(rowIndex) {
-  const alpha = rowIndex + 3;
+  const alpha = rowIndex + MIN_SAX;
   let allCellsAreSelected = true;
   let noCellsAreSelected = false;
 
@@ -126,11 +126,11 @@ function selectRow(rowIndex) {
   });
 
   if (allCellsAreSelected || noCellsAreSelected) {
-    d3.range(0, MAX_PAA).forEach(omega => {
+    d3.range(MIN_PAA, MAX_PAA + 1).forEach(omega => {
       toggleSelectedCell({ alpha, omega });
     });
   } else {
-    d3.range(0, MAX_PAA).forEach(omega => {
+    d3.range(MIN_PAA, MAX_PAA + 1).forEach(omega => {
       const index = getIndexInSelected({ alpha, omega });
       if (index === -1) {
         toggleSelectedCell({ alpha, omega });

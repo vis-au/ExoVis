@@ -66,7 +66,7 @@ def run_exo_vis():
     #mean array of periods
     mean_period_arr = []
     #Initialize 12*14 matrix to store data being send to frontend
-    matrix = np.array([[-1 for j in range(14)] for _ in range(12)])
+    matrix = np.array([[-1.0 for j in range(14)] for _ in range(12)])
     #Matrix to show progression of each cell in percentage
     progression_matrix = matrix.copy()
     

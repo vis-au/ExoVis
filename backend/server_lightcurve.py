@@ -66,7 +66,7 @@ def run_exo_vis():
     #mean array of periods
     mean_period_arr = []
     #Initialize 12*14 matrix to store data being send to frontend
-    matrix = np.array([[0.0 for j in range(14)] for _ in range(12)])
+    matrix = np.array([[-1 for j in range(14)] for _ in range(12)])
     #Matrix to show progression of each cell in percentage
     progression_matrix = matrix.copy()
     
@@ -160,9 +160,9 @@ def run_exo_vis():
             progression_matrix[alphabet_size - 3][paa_division_integer - 1] += (1/len(ground_truth_arr)) 
             #Send mean periods array data to server every 2th iteration with loadData()
             if(cell_counter % 2 ==0):
-                loadData(matrix.flatten(), np.mean(progression_matrix, axis=0) , np.mean(progression_matrix, axis=1) ) #load mean period array if full
+                loadData(matrix.flatten(), np.mean(progression_matrix, axis=0) , np.mean(progression_matrix, axis=1),progression_matrix ) #load mean period array if full
             cell_counter +=1
-        loadData(matrix.flatten(), np.mean(progression_matrix, axis=0) , np.mean(progression_matrix, axis=1) ) #load mean period array if full
+        loadData(matrix.flatten(), np.mean(progression_matrix, axis=0) , np.mean(progression_matrix, axis=1) ,progression_matrix) #load mean period array if full
         print("matrix ", i, " finished")
 
 def get_cell_order(columns, rows):
@@ -203,12 +203,13 @@ def send_progressive_updates(cell_order, counter):
     eel.send_data_to_frontend(updated_data)
     return counter
 
-def loadData(data_arr, avg_progression_columns, avg_progression_rows):
+def loadData(data_arr, avg_progression_columns, avg_progression_rows,progression_matrix):
 #def loadData(data_arr):
     data_dic = {}
     data_dic["matrix" ]= data_arr.tolist()
     data_dic["progression_column" ]= avg_progression_columns.tolist()
     data_dic["progression_row" ]= avg_progression_rows.tolist()
+    data_dic["progression_matrix" ]= progression_matrix.tolist()
     #eel.send_data(data.tolist())
     eel.send_data(data_dic)
 

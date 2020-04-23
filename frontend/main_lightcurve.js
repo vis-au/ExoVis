@@ -1,54 +1,68 @@
-const MAX_PAA = 12;
+// VIEW CONSTANTS
+
+const MIN_PAA = 1;
+const MAX_PAA = 14;
+const MIN_SAX = 3;
 const MAX_SAX = 14;
 
-const MATRIX_DOMAIN = [0.25, 89.11];
 const MATRIX_CELL_SIZE = 34;
-const MATRIX_HISTOGRAM_HEIGHT = 50;
-const MATRIX_HISTOGRAM_WIDTH = MATRIX_CELL_SIZE - 10;
 const MATRIX_WIDTH = (MAX_PAA) * (MATRIX_CELL_SIZE) * 2.5;
 const MATRIX_HEIGHT = (MAX_SAX) * (MATRIX_CELL_SIZE);
-const MATRIX_HISTOGRAM_COLOR = "grey";
+const MATRIX_DUMMY_DOMAIN = [0.25, 89.11];
 
+const PROGRESSION_BAR_SIZE = 100;
+const PADDING_X = 30;
+const PADDING_Y = 50;
+
+
+// global variable that stores all cells selected by the user by either clicking a row, column
+// or an individual cell.
+const selectedCells = [];
+
+
+// D3 COMPONENTS
+
+// contains the root node of the visualization
 const svg = d3.select("div#canvas").append("svg")
   .attr("width", MATRIX_WIDTH)
   .attr("height", MATRIX_HEIGHT)
   .style("background", "white");
 
-const barSize = 100;
-const paddingX = 30;
-const paddingY = 50;
 
-const selectedCells = [];
+// SCALES
 
-const scaleX = d3.scaleLinear()
-  .domain([0, MAX_PAA])
-  .range([paddingX, MATRIX_WIDTH - barSize - paddingX]);
+// scale for columns (paa)
+const scaleX = d3.scaleBand()
+  .domain(d3.range(MIN_PAA, MAX_PAA + 1))
+  .range([PADDING_X, MATRIX_WIDTH - PROGRESSION_BAR_SIZE - PADDING_X]);
 
-const scaleY = d3.scaleLinear()
-  .domain([3, MAX_SAX + 1])
-  .range([paddingY + barSize, MATRIX_HEIGHT - paddingY]);''
+// scale for rows (sax)
+const scaleY = d3.scaleBand()
+  .domain(d3.range(MIN_SAX, MAX_SAX + 1))
+  .range([PADDING_Y + PROGRESSION_BAR_SIZE, MATRIX_HEIGHT - PADDING_Y]);
 
-const xStep = scaleX(2) - scaleX(1);
-const yStep = scaleY(2) - scaleY(1);
-
+// scale for cell color
 const color = d3.scaleSequentialLog(d3.interpolateYlGnBu)
-  .domain(MATRIX_DOMAIN);
+  .domain(MATRIX_DUMMY_DOMAIN);
+
+// scale for the column/row bars
+const barScale = d3.scaleLinear().domain([0, 1]).range([0, PROGRESSION_BAR_SIZE]);
+
+// size of each cell is xstep * ystep
+const xStep = Math.abs(scaleX(MIN_PAA) - scaleX(MIN_PAA + 1));
+const yStep = Math.abs(scaleY(MIN_SAX) - scaleY(MIN_SAX + 1));
 
 
-// let dummyData = getDummyData();
-// sendRealData(dummyData);
-// console.log(getTransformedData(dummyData))
-
+// FUNCTIONS
 
 function render(data_dictionary) {
-  console.log(data_dictionary)
   const data = getTransformedData(data_dictionary["matrix"]);
-  const meanXProgress = data_dictionary["progression_column"]; //d3.range(MAX_PAA).map(d => Math.random());
-  const meanYProgress = data_dictionary["progression_row"]; //d3.range(2, MAX_SAX).map(d => Math.random());
+  const meanColumnProgress = data_dictionary["progression_column"].map(d => 1 - Math.abs(d));
+  const meanRowProgress = data_dictionary["progression_row"].map(d => 1 - Math.abs(d));
 
   renderAxes();
   updateMatrix(data);
-  renderBars(meanXProgress, meanYProgress);
+  renderBars(meanColumnProgress, meanRowProgress);
 }
 
 function notifyBackendSelectedCells() {
@@ -153,7 +167,7 @@ function updateMatrix(data) {
     .attr("y", d => scaleY(d.alpha))
     .attr("width", xStep)
     .attr("height", yStep)
-    .attr("fill", d => color(d.error))
+    .attr("fill", d => d.error === -1 ? "transparent" : color(d.error))
     .attr("stroke-width", 5)
     .on("click", toggleSelectedCell);
 
@@ -166,7 +180,7 @@ function updateMatrix(data) {
     .attr("text-anchor", "middle")
     .attr("x", d => scaleX(d.omega) + xStep/2)
     .attr("y", d => scaleY(d.alpha) + yStep * 0.66)
-    .attr("fill", d => d.error < 30 ? "black" : "white")
+    .attr("fill", d => d.error < 30 ? (d.error === -1 ? "none" : "black" ): "white")
     .text(d => (d.error + "").slice(0, 4));
 }
 
@@ -179,21 +193,19 @@ function renderAxes() {
 
   const axisX = svg.append("g")
     .attr("class", "axis x")
-    .attr("transform", `translate(0, ${MATRIX_HEIGHT - paddingY})`)
+    .attr("transform", `translate(0, ${MATRIX_HEIGHT - PADDING_Y})`)
     .call(xAxisGenerator);
 
   const axisY = svg.append("g")
     .attr("class", "axis y")
-    .attr("transform", `translate(${paddingX}, 0)`)
+    .attr("transform", `translate(${PADDING_X}, 0)`)
     .call(yAxisGenerator);
 
   axisX.append("text")
     .text("omega")
-    .attr("x", paddingX + MATRIX_WIDTH/2)
-    .attr("y", MATRIX_HEIGHT + paddingY);
+    .attr("x", PADDING_X + MATRIX_WIDTH/2)
+    .attr("y", MATRIX_HEIGHT + PADDING_Y);
 }
-
-const barScale = d3.scaleLinear().domain([0, 1]).range([0, barSize]);
 
 function renderBars(meanColumnProgress, meanRowProgress) {
   const barColor = "#afafaf";
@@ -206,8 +218,8 @@ function renderBars(meanColumnProgress, meanRowProgress) {
 
   barsX.selectAll("rect.bar.x").data(meanColumnProgress).join("rect")
     .attr("class", "bar x")
-    .attr("x", (d, i) => scaleX(i))
-    .attr("y", d => barSize + paddingY - barScale(d))
+    .attr("x", (d, i) => scaleX(i + 1))
+    .attr("y", d => PROGRESSION_BAR_SIZE + PADDING_Y - barScale(d))
     .attr("width", xStep)
     .attr("height", d => barScale(d))
     .attr("fill", barColor)
@@ -216,7 +228,7 @@ function renderBars(meanColumnProgress, meanRowProgress) {
 
   barsY.selectAll("rect.bar.y").data(meanRowProgress).join("rect")
     .attr("class", "bar y")
-    .attr("x", scaleX(scaleX.domain()[1]))
+    .attr("x", scaleX(scaleX.domain()[MAX_PAA - MIN_PAA]) + xStep)
     .attr("y", (d, i) => scaleY(i + 3))
     .attr("width", d => barScale(d))
     .attr("height", yStep)
@@ -224,28 +236,77 @@ function renderBars(meanColumnProgress, meanRowProgress) {
     .attr("stroke", barStroke)
     .on("click", (d, i) => selectRow(i));
 
-  barsX.append("text")
-    .attr("transform")
+  renderIndicators();
 }
 
-// setInterval(() => {
-//   render(getDummyData());
-// }, 500);
+function renderIndicators() {
+  const barsX = svg.select("g.bars.x");
+  const barsY = svg.select("g.bars.y");
 
+  const indicators = [0.25, 0.5, 0.75, 1];
+
+  const indicatorColumn = barsX.selectAll("g.indicator.column").data(indicators).join("g")
+    .attr("class", "indicator column")
+    .attr("transform", d => `translate(${PADDING_X},${PROGRESSION_BAR_SIZE + PADDING_Y - barScale(d)})`);
+
+  indicatorColumn.append("line")
+      .attr("x1", 0)
+      .attr("x2", scaleX(MAX_PAA) + xStep - PADDING_X)
+      .attr("y1", 0)
+      .attr("y2", 0)
+      .attr("stroke-dasharray", 2)
+      .attr("stroke", "#333");
+
+  indicatorColumn.append("text")
+    .attr("dy", 4)
+    .attr("dx", 4)
+    .attr("x", scaleX(MAX_PAA) + xStep - PADDING_X)
+    .attr("font-family", "sans-serif")
+    .attr("font-size", 10)
+    .text(d => parseInt(d * 100) + "%");
+
+  const indicatorRow = barsY.selectAll("g.indicator.row").data(indicators).join("g")
+    .attr("class", "indicator row")
+    .attr("transform", d => `translate(${scaleX(scaleX.domain()[MAX_PAA - MIN_PAA]) + xStep + barScale(d)},${PROGRESSION_BAR_SIZE + PADDING_Y})`);
+
+  indicatorRow.append("line")
+      .attr("x1", 0)
+      .attr("x2", 0)
+      .attr("y1", 0)
+      .attr("y2", scaleY(MAX_SAX) - scaleY(MIN_SAX) + yStep)
+      .attr("stroke-dasharray", 2)
+      .attr("stroke", "#333");
+
+  indicatorRow.append("text")
+    .attr("font-family", "sans-serif")
+    .attr("font-size", 10)
+    .attr("y", scaleY(MAX_SAX) - scaleY(MIN_SAX) + yStep + 10)
+    .attr("text-anchor", "middle")
+    .text(d => parseInt(d * 100));
+}
 
 /**
- * Simulate the stratified matrix data retrieved from the backend
+ * Simulate the stratified matrix data retrieved from the backend, including the progression on
+ * columns and rows.
  */
 function getDummyData() {
   const dummyData = [];
+  const randomRowProgress = d3.range(MAX_SAX - MIN_SAX + 1).map(Math.random);
+  const randomColumnProgress = d3.range(MAX_PAA - MIN_PAA + 1).map(Math.random);
 
-  for (let paa = 0; paa < MAX_PAA; paa++) {
-    for (let sax = 0; sax < MAX_SAX; sax++) {
-      dummyData.push(Math.random() * MATRIX_DOMAIN[1] - MATRIX_DOMAIN[0]);
+  for (let paa = MIN_PAA; paa <= MAX_PAA; paa++) {
+    for (let sax = MIN_SAX; sax <= MAX_SAX; sax++) {
+      dummyData.push(Math.random() * MATRIX_DUMMY_DOMAIN[1] - MATRIX_DUMMY_DOMAIN[0]);
     }
   }
 
-  return dummyData;
+  const dummyObj = {
+    matrix: dummyData,
+    progression_column: randomColumnProgress,
+    progression_row: randomRowProgress
+  }
+
+  return dummyObj;
 }
 
 /**
@@ -261,7 +322,7 @@ function getTransformedData(arrayData) {
       if (arrayData[sax * MAX_SAX + paa] !== undefined) {
         transformedData.push({
           "alpha": sax + 3,
-          "omega": paa,
+          "omega": paa + 1,
           "error": arrayData[sax * MAX_SAX + paa],
           "progress": 100
         });
@@ -273,25 +334,10 @@ function getTransformedData(arrayData) {
 }
 
 
-// data contains list of objects with 'cell' property for the parametrization and 'value' for the
-// new entry
-function sendDataToFrontend(next_chunk) {
-  // transform cell into the format used in the vega-lite view
-  const new_values = next_chunk.map(datum => {
-    const paa = datum.cell[0];
-    const sax = datum.cell[1];
-    const value = datum.value;
-
-    return { paa, sax, value };
-  });
-
-  // update matrix
-  view.then(view => {
-    view.insert("timeseries", new_values).run();
-  });
-}
+// setInterval(() => {
+  // render(getDummyData());
+// }, 500);
 
 window.eel.set_host("ws://localhost:8080");
 window.eel.register_client("hello there");
-// window.eel.expose(sendRealData, "send_data");
 window.eel.expose(render, "send_data");

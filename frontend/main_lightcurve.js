@@ -40,10 +40,11 @@ const color = d3.scaleSequentialLog(d3.interpolateYlGnBu)
 // console.log(getTransformedData(dummyData))
 
 
-function render(listData) {
-  const data = getTransformedData(listData);
-  const meanXProgress = d3.range(MAX_PAA).map(d => Math.random());
-  const meanYProgress = d3.range(2, MAX_SAX).map(d => Math.random());
+function render(data_dictionary) {
+  console.log(data_dictionary)
+  const data = getTransformedData(data_dictionary["matrix"]);
+  const meanXProgress = data_dictionary["progression_column"]; //d3.range(MAX_PAA).map(d => Math.random());
+  const meanYProgress = data_dictionary["progression_row"]; //d3.range(2, MAX_SAX).map(d => Math.random());
 
   renderAxes();
   updateMatrix(data);

@@ -166,7 +166,7 @@ function updateMatrix(data) {
     .attr("transform", d => `translate(${scaleX(d.omega)}, ${scaleY(d.alpha)})`)
     .on("click", toggleSelectedCell)
 
-  // cell.append("title").text(d => d.error);
+  cell.append("title").text(d => d.error);
 
   cell.append("rect")
     .attr("class", "cell")
@@ -185,8 +185,7 @@ function updateMatrix(data) {
     .attr("dx", xStep/2)
     .attr("dy", yStep * 0.66)
     .attr("fill", d => d.error < 9 ? (d.error === -1 ? "none" : "black" ): "white")
-    .text("");
-    // .text(d => (d.error + "").slice(0, 4));
+    .text(d => (d.error + "").slice(0, 4));
 }
 
 
@@ -196,20 +195,15 @@ function renderAxes() {
 
   svg.selectAll("g.axis").remove();
 
-  const axisX = svg.append("g")
+  svg.append("g")
     .attr("class", "axis x")
     .attr("transform", `translate(0, ${MATRIX_HEIGHT - PADDING_Y})`)
     .call(xAxisGenerator);
 
-  const axisY = svg.append("g")
+  svg.append("g")
     .attr("class", "axis y")
     .attr("transform", `translate(${PADDING_X}, 0)`)
     .call(yAxisGenerator);
-
-  axisX.append("text")
-    .text("")
-    .attr("x", PADDING_X + MATRIX_WIDTH/2)
-    .attr("y", MATRIX_HEIGHT + PADDING_Y);
 }
 
 function renderBars(meanColumnProgress, meanRowProgress) {
@@ -268,8 +262,7 @@ function renderIndicators() {
     .attr("x", scaleX(MAX_PAA) + xStep - PADDING_X)
     .attr("font-family", "sans-serif")
     .attr("font-size", 10)
-    .text("");
-    // .text(d => parseInt(d * 100) + "%");
+    .text(d => parseInt(d * 100) + "%");
 
 
   const indicatorRow = barsY.selectAll("g.indicator.row").data(indicators).join("g")
@@ -289,8 +282,7 @@ function renderIndicators() {
     .attr("font-size", 10)
     .attr("y", scaleY(MAX_SAX) - scaleY(MIN_SAX) + yStep + 10)
     .attr("text-anchor", "middle")
-    .text("");
-    // .text(d => parseInt(d * 100));
+    .text(d => parseInt(d * 100));
 }
 
 /**

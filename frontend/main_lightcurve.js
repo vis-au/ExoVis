@@ -5,7 +5,7 @@ const MAX_PAA = 14;
 const MIN_SAX = 3;
 const MAX_SAX = 14;
 
-const MATRIX_CELL_SIZE = 34;
+const MATRIX_CELL_SIZE = 45;
 const MATRIX_WIDTH = (MAX_PAA) * (MATRIX_CELL_SIZE) * 2.5;
 const MATRIX_HEIGHT = (MAX_SAX) * (MATRIX_CELL_SIZE);
 const MATRIX_DUMMY_DOMAIN = [0.25, 89.11];
@@ -60,9 +60,9 @@ function render(data_dictionary) {
   const meanColumnProgress = data_dictionary["progression_column"].map(d => 1 - Math.abs(d));
   const meanRowProgress = data_dictionary["progression_row"].map(d => 1 - Math.abs(d));
 
-  renderAxes();
   updateMatrix(data);
   renderBars(meanColumnProgress, meanRowProgress);
+  renderAxes();
 }
 
 function notifyBackendSelectedCells() {

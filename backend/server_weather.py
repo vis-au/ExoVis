@@ -40,9 +40,13 @@ import lin_regression_matrix as pm
 from pyDOE import *
 from scipy.stats.distributions import norm
 
+#Contains tuples with parameter combination of selected cells
+selected_cells = []
+
 def run_exo_vis():
     print("Building period matrix ...")
     
+    global selected_cells
     #Download or use downloaded weather data files
     time_avg_temp_arr = pm.get_weather_data_from_files()
     #get ground truth for the slope computed by the lin. regression model for all weather data files.
@@ -50,7 +54,9 @@ def run_exo_vis():
     #mean array of periods
     mean_period_arr = []
     #Initialize 12*12 matrix to store data being send to frontend
-    matrix = np.array([[0.0 for j in range(12)] for _ in range(12)])
+    matrix = np.array([[-1.0 for j in range(12)] for _ in range(12)])
+    #Matrix to show progression of each cell in percentage
+    progression_matrix = matrix.copy()
 
     #Calculate matrix values for all lighcurves
     for i in range(len (time_avg_temp_arr)):
@@ -68,25 +74,28 @@ def run_exo_vis():
         for alphabet_size in range(3, 15):
             for paa_division_integer in range(1, 13):
                 cells += [(alphabet_size, paa_division_integer)]
-
-        #Contains tuples with parameter combination of selected cells
-        list_of_selected_cells = []
-        
+                
         # Do Latin-Hypercube sampling
         lhs_array = lhs(1, samples=144, criterion='center')
-        #Sort Latin-Hypercube array 
+        #Sort Latin-Hypercube array
         lhs_array_sorted = np.argsort(lhs_array.flatten())
         lhs_final = []
         #Add values of the cells array to lhs_final by using idexes from sorted Latin-Hypercube array
         for index in range(144) :
             lhs_final.append(cells[lhs_array_sorted[index]])
         cells = lhs_final
-        
+
+        c = []
         #Find cells selected and put in front of array
-        for selected_cell in list_of_selected_cells:
+        for selected_cell in selected_cells:
             #Remove and append to front of cells array
+            for cell in cells:
+                if cell[0] == selected_cell[0] and cell[1] == selected_cell[1]:
+                    c += [cell]
+
+        for selected_cell in c:
             cells.remove(selected_cell)
-            cells[:0] = [selected_cell] 
+            cells[:0] = [selected_cell]
 
         #Find Period for eaxh parameter combination alphabets_size/PAA_division_interger of SAX
         for cell in range(len(cells)):
@@ -135,13 +144,26 @@ def run_exo_vis():
                 #Update mean of particualr parameter combination
                 current_value = matrix[alphabet_size - 3][paa_division_integer - 1]
                 matrix[alphabet_size - 3][paa_division_integer - 1] = (current_value * i + ground_truth_error) / (i+1)
+            #Update progression of cell in percentage
+            progression_matrix[alphabet_size - 3][paa_division_integer - 1] += (1/len(ground_truth_arr))
             #Send mean periods array data to server every 2th iteration with loadData()
             if(cell_counter % 2 ==0):
-                loadData(matrix.flatten()) #load mean period array if full
+                loadData(matrix.flatten(), np.mean(progression_matrix, axis=0) , np.mean(progression_matrix, axis=1),progression_matrix ) #load mean period array if full
             cell_counter +=1
-        loadData(matrix.flatten())
+        loadData(matrix.flatten(), np.mean(progression_matrix, axis=0) , np.mean(progression_matrix, axis=1) ,progression_matrix) #load mean period array if full
         print("matrix ", i, " finished")
     print(matrix)
+
+
+def loadData(data_arr, avg_progression_columns, avg_progression_rows,progression_matrix):
+#def loadData(data_arr):
+    data_dic = {}
+    data_dic["matrix" ]= data_arr.tolist()
+    data_dic["progression_column" ]= avg_progression_columns.tolist()
+    data_dic["progression_row" ]= avg_progression_rows.tolist()
+    data_dic["progression_matrix" ]= progression_matrix.tolist()
+    #eel.send_data(data.tolist())
+    eel.send_data(data_dic)
 
 def get_cell_order(columns, rows):
     cell_order = []
@@ -181,10 +203,6 @@ def send_progressive_updates(cell_order, counter):
     eel.send_data_to_frontend(updated_data)
     return counter
 
-
-def loadData(data_arr):
-    data = np.asarray(data_arr) 
-    eel.send_data(data.tolist())
 
 @eel.expose
 def register_client(message):

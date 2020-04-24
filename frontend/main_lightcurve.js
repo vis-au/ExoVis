@@ -161,27 +161,32 @@ function updateMatrix(data) {
 
   const matrix = svg.append("g").attr("class", "matrix");
 
-  matrix.selectAll("rect.cell").data(data).join("rect")
+  const cell = matrix.selectAll("g.cell").data(data).join("g")
     .attr("class", "cell")
-    .attr("x", d => scaleX(d.omega))
-    .attr("y", d => scaleY(d.alpha))
+    .attr("transform", d => `translate(${scaleX(d.omega)}, ${scaleY(d.alpha)})`)
+    .on("click", toggleSelectedCell)
+
+  // cell.append("title").text(d => d.error);
+
+  cell.append("rect")
+    .attr("class", "cell")
     .attr("width", xStep)
     .attr("height", yStep)
     .attr("fill", d => d.error === -1 ? "transparent" : color(d.error))
-    .attr("stroke-width", 5)
-    .on("click", toggleSelectedCell);
+    .attr("stroke-width", 5);
 
   updateSelectedCellStatus();
 
-  matrix.selectAll("text.label").data(data).join("text")
+  cell.append("text")
     .attr("class", "label")
     .attr("font-family", "sans-serif")
     .attr("font-size", 11)
     .attr("text-anchor", "middle")
-    .attr("x", d => scaleX(d.omega) + xStep/2)
-    .attr("y", d => scaleY(d.alpha) + yStep * 0.66)
+    .attr("dx", xStep/2)
+    .attr("dy", yStep * 0.66)
     .attr("fill", d => d.error < 9 ? (d.error === -1 ? "none" : "black" ): "white")
-    .text(d => (d.error + "").slice(0, 4));
+    .text("");
+    // .text(d => (d.error + "").slice(0, 4));
 }
 
 
@@ -202,7 +207,7 @@ function renderAxes() {
     .call(yAxisGenerator);
 
   axisX.append("text")
-    .text("omega")
+    .text("")
     .attr("x", PADDING_X + MATRIX_WIDTH/2)
     .attr("y", MATRIX_HEIGHT + PADDING_Y);
 }
@@ -263,7 +268,9 @@ function renderIndicators() {
     .attr("x", scaleX(MAX_PAA) + xStep - PADDING_X)
     .attr("font-family", "sans-serif")
     .attr("font-size", 10)
-    .text(d => parseInt(d * 100) + "%");
+    .text("");
+    // .text(d => parseInt(d * 100) + "%");
+
 
   const indicatorRow = barsY.selectAll("g.indicator.row").data(indicators).join("g")
     .attr("class", "indicator row")
@@ -282,7 +289,8 @@ function renderIndicators() {
     .attr("font-size", 10)
     .attr("y", scaleY(MAX_SAX) - scaleY(MIN_SAX) + yStep + 10)
     .attr("text-anchor", "middle")
-    .text(d => parseInt(d * 100));
+    .text("");
+    // .text(d => parseInt(d * 100));
 }
 
 /**

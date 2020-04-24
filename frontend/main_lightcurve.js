@@ -102,7 +102,7 @@ function selectColumn(columnIndex) {
       toggleSelectedCell({ alpha, omega });
     });
   } else {
-    d3.range(3, MAX_SAX + 1).forEach(alpha => {
+    d3.range(MIN_SAX, MAX_SAX + 1).forEach(alpha => {
       const index = getIndexInSelected({ alpha, omega });
       if (index === -1) {
         toggleSelectedCell({ alpha, omega });
@@ -119,7 +119,7 @@ function selectRow(rowIndex) {
   let allCellsAreSelected = true;
   let noCellsAreSelected = false;
 
-  d3.range(1, MAX_PAA).forEach(omega => {
+  d3.range(MIN_PAA, MAX_PAA + 1).forEach(omega => {
     const index = getIndexInSelected({ alpha, omega });
     allCellsAreSelected = allCellsAreSelected && index > -1;
     noCellsAreSelected = noCellsAreSelected && index === -1;
@@ -180,7 +180,7 @@ function updateMatrix(data) {
     .attr("text-anchor", "middle")
     .attr("x", d => scaleX(d.omega) + xStep/2)
     .attr("y", d => scaleY(d.alpha) + yStep * 0.66)
-    .attr("fill", d => d.error < 30 ? (d.error === -1 ? "none" : "black" ): "white")
+    .attr("fill", d => d.error < 9 ? (d.error === -1 ? "none" : "black" ): "white")
     .text(d => (d.error + "").slice(0, 4));
 }
 

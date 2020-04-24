@@ -55,7 +55,7 @@ selected_cells = []
 
 def run_exo_vis():
     print("Building period matrix ...")
-    
+
     global selected_cells
     #Download or use downloaded lightcurve files
     time_flux_tuple_arr = pm.get_lightcurve_data()
@@ -69,7 +69,7 @@ def run_exo_vis():
     matrix = np.array([[-1.0 for j in range(14)] for _ in range(12)])
     #Matrix to show progression of each cell in percentage
     progression_matrix = matrix.copy()
-    
+
     #Calculate matrix values for all lighcurves
     for i in range(len (time_flux_tuple_arr)):
         # get flux, time, duration and ground thruth for i'th tuple
@@ -90,17 +90,23 @@ def run_exo_vis():
 
         # Do Latin-Hypercube sampling
         lhs_array = lhs(1, samples=168, criterion='center')
-        #Sort Latin-Hypercube array 
+        #Sort Latin-Hypercube array
         lhs_array_sorted = np.argsort(lhs_array.flatten())
         lhs_final = []
         #Add values of the cells array to lhs_final by using idexes from sorted Latin-Hypercube array
         for index in range(168) :
             lhs_final.append(cells[lhs_array_sorted[index]])
         cells = lhs_final
-        
+
+        c = []
         #Find cells selected and put in front of array
         for selected_cell in selected_cells:
             #Remove and append to front of cells array
+            for cell in cells:
+                if cell[0] == selected_cell[0] and cell[1] == selected_cell[1]:
+                    c += [cell]
+
+        for selected_cell in c:
             cells.remove(selected_cell)
             cells[:0] = [selected_cell]
 
@@ -115,12 +121,12 @@ def run_exo_vis():
             ## PAA transformation of data
             PAA_array = paa(norm_fluxes, paa_points)
             PAA_array = np.asarray(PAA_array, dtype=np.float32)
-            
+
             #SAX conversion
             # Get breakpoints to convert segments into SAX string
             breakPointsArray = pm.getBreakPointsArray(PAA_array, alphabet_size)
             sax_output = ts_to_string(PAA_array, breakPointsArray)
-            
+
             # Convert to numeric SAX representation
             numericSaxConversionArray = pm.getNumericSaxArray(breakPointsArray)
             numeric_SAX_flux = []
@@ -146,7 +152,7 @@ def run_exo_vis():
             #Find period with highest power in periodogram
             best_period = np.argmax(periodogram.power)
             period = periodogram.period[best_period]
-            
+
             #Add error in percentage between best peiord and ground truth to array with periods
             ground_truth_error = (abs(period - ground_truth_period) / ground_truth_period)*100
             #Update mean periods array
@@ -157,51 +163,15 @@ def run_exo_vis():
                 current_value = matrix[alphabet_size - 3][paa_division_integer - 1]
                 matrix[alphabet_size - 3][paa_division_integer - 1] = (current_value * i + ground_truth_error) / (i+1)
             #Update progression of cell in percentage
-            progression_matrix[alphabet_size - 3][paa_division_integer - 1] += (1/len(ground_truth_arr)) 
+            progression_matrix[alphabet_size - 3][paa_division_integer - 1] += (1/len(ground_truth_arr))
             #Send mean periods array data to server every 2th iteration with loadData()
             if(cell_counter % 2 ==0):
+                eel.sleep(0.01)
                 loadData(matrix.flatten(), np.mean(progression_matrix, axis=0) , np.mean(progression_matrix, axis=1),progression_matrix ) #load mean period array if full
             cell_counter +=1
         loadData(matrix.flatten(), np.mean(progression_matrix, axis=0) , np.mean(progression_matrix, axis=1) ,progression_matrix) #load mean period array if full
         print("matrix ", i, " finished")
 
-def get_cell_order(columns, rows):
-    cell_order = []
-
-    while len(cell_order) < (columns * rows):
-        next_col = int(random.uniform(0, columns))
-        next_row = int(random.uniform(0, rows))
-        next_cell = (next_col, next_row)
-
-        if next_cell not in cell_order:
-            cell_order += [next_cell]
-
-    return cell_order
-
-
-def get_updated_value(cell):
-    return random.uniform(0, 1)
-
-
-def send_progressive_updates(cell_order, counter):
-    steps = 5
-    updated_data = []
-
-    for _ in range(0, steps):
-        next_cell = cell_order[counter]
-        preliminary_value = get_updated_value(next_cell)
-
-        updated_data += [{
-            'cell': next_cell,
-            'value': preliminary_value
-        }]
-
-        counter += 1
-        if counter == len(cell_order):
-            counter = 0
-
-    eel.send_data_to_frontend(updated_data)
-    return counter
 
 def loadData(data_arr, avg_progression_columns, avg_progression_rows,progression_matrix):
 #def loadData(data_arr):
@@ -215,6 +185,7 @@ def loadData(data_arr, avg_progression_columns, avg_progression_rows,progression
 
 @eel.expose
 def send_selected_cells(new_selected_cells):
+    global selected_cells
     print("received new cells")
     selected_cells = new_selected_cells
 
@@ -225,22 +196,12 @@ def register_client(message):
     starttime = time.time()
     interval = 0.25
 
-    run_exo_vis()
-    #loadData()
-
-    # cell_order = get_cell_order(10, 10)
-    # progressiveness_counter = 0
-
-    # while True:
-    #     print("tick")
-    #     time.sleep(interval - ((time.time() - starttime) % interval))
-    #     progressiveness_counter = send_progressive_updates(cell_order, progressiveness_counter)
-
-
+    eel.spawn(run_exo_vis)
 
 def start_eel(develop):
     """Start Eel with either production or development configuration."""
-    print("hello there")
+    print("Launching backend ...")
+
     if develop:
         directory = '../frontend/'
         app = None

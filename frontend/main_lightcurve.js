@@ -321,8 +321,8 @@ function getTransformedData(arrayData) {
     for (let sax = 0; sax < MAX_SAX; sax++) {
       if (arrayData[sax * MAX_SAX + paa] !== undefined) {
         transformedData.push({
-          "alpha": sax + 3,
-          "omega": paa + 1,
+          "alpha": sax + MIN_SAX,
+          "omega": paa + MIN_PAA,
           "error": arrayData[sax * MAX_SAX + paa],
           "progress": 100
         });

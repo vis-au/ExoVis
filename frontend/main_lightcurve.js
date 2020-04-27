@@ -56,7 +56,9 @@ const yStep = Math.abs(scaleY(MIN_SAX) - scaleY(MIN_SAX + 1));
 // FUNCTIONS
 
 function render(data_dictionary) {
-  const data = getTransformedData(data_dictionary["matrix"]);
+  const matrixData = data_dictionary["matrix"];
+  const progressData = data_dictionary["progression_matrix"];
+  const data = getTransformedData(matrixData, progressData);
   const meanColumnProgress = data_dictionary["progression_column"].map(d => 1 - Math.abs(d));
   const meanRowProgress = data_dictionary["progression_row"].map(d => 1 - Math.abs(d));
 
@@ -166,7 +168,7 @@ function updateMatrix(data) {
     .attr("transform", d => `translate(${scaleX(d.omega)}, ${scaleY(d.alpha)})`)
     .on("click", toggleSelectedCell)
 
-  cell.append("title").text(d => d.error);
+  cell.append("title").text(d => d.progress);
 
   cell.append("rect")
     .attr("class", "cell")
@@ -312,19 +314,19 @@ function getDummyData() {
 /**
  * Transform stratified matrix data into tabular data that can be used by vega-lite. Assumes the
  * data to be stored row-wise in |paa| rows and |sax| columns.
- * @param {number[]} arrayData
+ * @param {number[]} matrixData
  */
-function getTransformedData(arrayData) {
+function getTransformedData(matrixData, progressData) {
   const transformedData = [];
 
   for (let paa = 0; paa < MAX_PAA; paa++) {
     for (let sax = 0; sax < MAX_SAX; sax++) {
-      if (arrayData[sax * MAX_SAX + paa] !== undefined) {
+      if (matrixData[sax * MAX_SAX + paa] !== undefined) {
         transformedData.push({
           "alpha": sax + MIN_SAX,
           "omega": paa + MIN_PAA,
-          "error": arrayData[sax * MAX_SAX + paa],
-          "progress": 100
+          "error": matrixData[sax * MAX_SAX + paa],
+          "progress": 1 + progressData[sax][paa]
         });
       }
     }

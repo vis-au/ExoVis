@@ -46,7 +46,6 @@ import time
 
 import period_matrix as pm
 
-#Lating Hypercube imports
 from pyDOE import *
 from scipy.stats.distributions import norm
 
@@ -54,6 +53,8 @@ MIN_PAA = 1
 MAX_PAA = 14
 MIN_SAX = 3
 MAX_SAX = 14
+
+MAX_ITERATIONS = 6
 
 #Contains tuples with parameter combination of selected cells
 selected_cells = []
@@ -64,12 +65,15 @@ def process_cell(matrix, cell, progress_indicator):
 
     progression = 0 if progress_indicator == -1 else progress_indicator
 
-    #Download or use downloaded lightcurve files
+    # Download or use downloaded lightcurve files
     time_flux_tuple_arr = pm.get_lightcurve_data()
-    #get ground truth values for all lc's with autocorrelation
+
+    # get ground truth values for all lc's with autocorrelation
     ground_truth_arr= pm.get_ground_truth_values(time_flux_tuple_arr)
-    #transform durations from exoplanet archieve from hours to days
+
+    # transform durations from exoplanet archieve from hours to days
     actual_duration_arr=[3.88216/24, 2.36386/24, 3.98235/24 , 4.56904/24 ,3.60111/24, 5.16165/24, 3.19843/24 ] ##kepler-2,3,4,5,6,7,8 https://exoplanetarchive.ipac.caltech.edu/cgi-bin/TblView/nph-tblView?app=ExoTbls&config=cumulative
+
     #mean array of periods
     mean_period_arr = []
 
@@ -84,7 +88,7 @@ def process_cell(matrix, cell, progress_indicator):
 
     dat_size = norm_fluxes.size
 
-    #Find Period for eaxh parameter combination alphabets_size/PAA_division_interger of SAX
+    # Find Period for eaxh parameter combination alphabets_size/PAA_division_interger of SAX
 
     # PAA transformation procedure
     # Determine number of PAA points from the datasize devided by the paa_division_integer(number of points per segment)
@@ -136,11 +140,11 @@ def process_cell(matrix, cell, progress_indicator):
 
     # Update matrix
     if progression == 0:
-        matrix[alphabet_size - 3][paa_division_integer - 1] = ground_truth_error
+        matrix[alphabet_size - MIN_SAX][paa_division_integer - MIN_PAA] = ground_truth_error
     else:
         #Update mean of particualr parameter combination
-        current_value = matrix[alphabet_size - 3][paa_division_integer - 1]
-        matrix[alphabet_size - 3][paa_division_integer - 1] = (current_value * progression + ground_truth_error) / (progression+1)
+        current_value = matrix[alphabet_size - MIN_SAX][paa_division_integer - MIN_PAA]
+        matrix[alphabet_size - MIN_SAX][paa_division_integer - MIN_PAA] = (current_value * progression + ground_truth_error) / (progression+1)
 
 
 def get_cell_progression(cell, progress_matrix):
@@ -153,6 +157,8 @@ def get_cell_progression(cell, progress_matrix):
 
 
 def get_next_orderly_cell(matrix, progress_matrix, cell_order, index_cell_order):
+    global MAX_ITERATIONS
+
     has_found_valid_cell = False
     candidate_cell = -1
 
@@ -160,12 +166,14 @@ def get_next_orderly_cell(matrix, progress_matrix, cell_order, index_cell_order)
         index_cell_order = index_cell_order % len(cell_order)
         candidate_cell = cell_order[index_cell_order]
         index_cell_order += 1
-        has_found_valid_cell = get_cell_progression(candidate_cell, progress_matrix) < 6
+        has_found_valid_cell = get_cell_progression(candidate_cell, progress_matrix) < MAX_ITERATIONS
 
     return candidate_cell, index_cell_order
 
 
 def get_next_selected_cell(matrix, progress_matrix, index_selected_cells):
+    global MAX_ITERATIONS
+
     has_found_valid_cell = False
     tried = 0
     candidate_cell = -1
@@ -174,7 +182,7 @@ def get_next_selected_cell(matrix, progress_matrix, index_selected_cells):
         index_selected_cells = index_selected_cells % len(selected_cells)
         candidate_cell = selected_cells[index_selected_cells]
         index_selected_cells += 1
-        has_found_valid_cell = get_cell_progression(candidate_cell, progress_matrix) < 6
+        has_found_valid_cell = get_cell_progression(candidate_cell, progress_matrix) < MAX_ITERATIONS
         tried += 1
 
     if has_found_valid_cell:
@@ -227,31 +235,31 @@ def get_cell_order():
 
     return lhs_final
 
-def update_frontend(matrix, progression_matrix, max_iterations):
+def update_frontend(matrix, progression_matrix):
+    global MAX_ITERATIONS
+
     eel.sleep(0.01)
     non_negative = progression_matrix.copy()
     non_negative[non_negative == -1] = 0
-    column_progression = np.mean(non_negative, axis=0) / max_iterations
-    row_progression = np.mean(non_negative, axis=1) / max_iterations
-    print(column_progression)
+    column_progression = np.mean(non_negative, axis=0) / MAX_ITERATIONS
+    row_progression = np.mean(non_negative, axis=1) / MAX_ITERATIONS
     loadData(matrix.flatten(), column_progression, row_progression, non_negative)
 
 
 def build_matrix():
-    global MIN_PAA, MAX_PAA, MIN_SAX, MAX_SAX, selected_cells
+    global MIN_PAA, MAX_PAA, MIN_SAX, MAX_SAX, MAX_ITERATIONS, selected_cells
 
     selected_cells = []
     processed_cell_counter = 0
     cells_to_process = (MAX_PAA - MIN_PAA + 1) * (MAX_SAX - MIN_SAX + 1)
-    max_iterations = 6
 
-    matrix = np.array([[-1.0 for j in range(14)] for _ in range(12)])
+    matrix = np.array([[-1.0 for j in range(MAX_PAA - MIN_PAA + 1)] for _ in range(MAX_SAX - MIN_SAX + 1)])
     progress_matrix = matrix.copy()
 
     index_selected_cells = 0
     index_cell_order = 0
 
-    while processed_cell_counter < cells_to_process * max_iterations:
+    while processed_cell_counter < cells_to_process * MAX_ITERATIONS:
         cell_order = get_cell_order()
         index_cell_order = 0
 
@@ -259,7 +267,7 @@ def build_matrix():
             index_cell_order, index_selected_cells = process_next_cell(matrix, progress_matrix, cell_order, index_cell_order, index_selected_cells)
             processed_cell_counter += 1
 
-            update_frontend(matrix, progress_matrix, max_iterations)
+            update_frontend(matrix, progress_matrix)
 
 
 def run_exo_vis():
@@ -308,9 +316,6 @@ def start_eel(develop):
     eel.init(directory, ['.tsx', '.ts', '.jsx', '.js', '.html'])
 
     print('Backend launched successfully. Waiting for requests ...')
-
-    # These will be queued until the first connection is made, but won't be repeated on a page reload
-    # eel.say_hello_js('Python World!')   # Call a JavaScript function (must be after `eel.init()`)
 
     eel_kwargs = dict(
         host='localhost',

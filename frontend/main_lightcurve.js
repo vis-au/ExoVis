@@ -230,7 +230,7 @@ function renderBars(meanColumnProgress, meanRowProgress) {
   barsY.selectAll("rect.bar.y").data(meanRowProgress).join("rect")
     .attr("class", "bar y")
     .attr("x", scaleX(scaleX.domain()[MAX_PAA - MIN_PAA]) + xStep)
-    .attr("y", (d, i) => scaleY(i + 3))
+    .attr("y", (d, i) => scaleY(i + MIN_SAX))
     .attr("width", d => barScale(d))
     .attr("height", yStep)
     .attr("fill", barColor)

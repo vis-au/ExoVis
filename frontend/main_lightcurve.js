@@ -59,8 +59,8 @@ function render(data_dictionary) {
   const matrixData = data_dictionary["matrix"];
   const progressData = data_dictionary["progression_matrix"];
   const data = getTransformedData(matrixData, progressData);
-  const meanColumnProgress = data_dictionary["progression_column"].map(d => 1 - Math.abs(d));
-  const meanRowProgress = data_dictionary["progression_row"].map(d => 1 - Math.abs(d));
+  const meanColumnProgress = data_dictionary["progression_column"].map(d => Math.abs(d));
+  const meanRowProgress = data_dictionary["progression_row"].map(d => Math.abs(d));
 
   updateMatrix(data);
   renderBars(meanColumnProgress, meanRowProgress);
@@ -341,5 +341,5 @@ function getTransformedData(matrixData, progressData) {
 // }, 500);
 
 window.eel.set_host("ws://localhost:8080");
-window.eel.register_client("hello there");
+window.eel.register_client("registered frontend.");
 window.eel.expose(render, "send_data");

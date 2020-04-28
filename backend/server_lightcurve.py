@@ -229,9 +229,12 @@ def get_cell_order():
 
 def update_frontend(matrix, progression_matrix, max_iterations):
     eel.sleep(0.01)
-    column_progression = np.mean(progression_matrix, axis=0) / max_iterations
-    row_progression = np.mean(progression_matrix, axis=1) / max_iterations
-    loadData(matrix.flatten(), column_progression, row_progression, progression_matrix)
+    non_negative = progression_matrix.copy()
+    non_negative[non_negative == -1] = 0
+    column_progression = np.mean(non_negative, axis=0) / max_iterations
+    row_progression = np.mean(non_negative, axis=1) / max_iterations
+    print(column_progression)
+    loadData(matrix.flatten(), column_progression, row_progression, non_negative)
 
 
 def build_matrix():

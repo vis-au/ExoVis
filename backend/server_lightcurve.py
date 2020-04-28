@@ -50,13 +50,20 @@ import period_matrix as pm
 from pyDOE import *
 from scipy.stats.distributions import norm
 
+MIN_PAA = 1
+MAX_PAA = 14
+MIN_SAX = 3
+MAX_SAX = 14
+
 #Contains tuples with parameter combination of selected cells
 selected_cells = []
 
-def run_exo_vis():
-    print("Building period matrix ...")
+def process_cell(matrix, cell, progress_indicator):
+    alphabet_size = cell[0]
+    paa_division_integer = cell[1]
 
-    global selected_cells
+    progression = 0 if progress_indicator == -1 else progress_indicator
+
     #Download or use downloaded lightcurve files
     time_flux_tuple_arr = pm.get_lightcurve_data()
     #get ground truth values for all lc's with autocorrelation
@@ -65,122 +72,206 @@ def run_exo_vis():
     actual_duration_arr=[3.88216/24, 2.36386/24, 3.98235/24 , 4.56904/24 ,3.60111/24, 5.16165/24, 3.19843/24 ] ##kepler-2,3,4,5,6,7,8 https://exoplanetarchive.ipac.caltech.edu/cgi-bin/TblView/nph-tblView?app=ExoTbls&config=cumulative
     #mean array of periods
     mean_period_arr = []
-    #Initialize 12*14 matrix to store data being send to frontend
+
+    # Calculate matrix values for all lighcurves
+    # get flux, time, duration and ground thruth for i'th tuple
+    ground_truth_period = ground_truth_arr[progression]
+    actual_duration = actual_duration_arr[progression]
+
+    time_flux_tuple = time_flux_tuple_arr[progression]
+    time = time_flux_tuple[0]
+    norm_fluxes = time_flux_tuple[1]
+
+    dat_size = norm_fluxes.size
+
+    #Find Period for eaxh parameter combination alphabets_size/PAA_division_interger of SAX
+
+    # PAA transformation procedure
+    # Determine number of PAA points from the datasize devided by the paa_division_integer(number of points per segment)
+    paa_points = int(dat_size/paa_division_integer)
+
+    # PAA transformation of data
+    PAA_array = paa(norm_fluxes, paa_points)
+    PAA_array = np.asarray(PAA_array, dtype=np.float32)
+
+    # SAX conversion
+    # Get breakpoints to convert segments into SAX string
+    breakPointsArray = pm.getBreakPointsArray(PAA_array, alphabet_size)
+    sax_output = ts_to_string(PAA_array, breakPointsArray)
+
+    # Convert to numeric SAX representation
+    numericSaxConversionArray = pm.getNumericSaxArray(breakPointsArray)
+    numeric_SAX_flux = []
+
+    for symbol_index in range(len(sax_output)):
+        letter_represented_as_int = pm.getAlfabetToNumericConverter(sax_output[symbol_index], numericSaxConversionArray)
+        numeric_SAX_flux.append(letter_represented_as_int)
+
+    numeric_SAX_flux= np.asarray(numeric_SAX_flux,dtype=np.float32)
+    numeric_SAX_time = time
+
+    # Repeat each element in array x times, where x is the number of PAA points
+    repeated_x_array= np.repeat(numeric_SAX_time,paa_points)
+
+    # How many elements each list should have
+    n = int(len(repeated_x_array)/paa_points)
+    final_x_array=[]
+    lists = list(pm.divide_array_in_chunks(repeated_x_array, n))
+
+    # take mean of all chunks
+    for l in lists:
+        final_x_array.append(np.mean(l))
+    numeric_SAX_time= final_x_array
+
+    # BoxLeastSquares applied to numeric SAX representation
+    BLS = BoxLeastSquares(numeric_SAX_time, numeric_SAX_flux)
+    periodogram = BLS.autopower(actual_duration)
+
+    # Find period with highest power in periodogram
+    best_period = np.argmax(periodogram.power)
+    period = periodogram.period[best_period]
+
+    # Add error in percentage between best peiord and ground truth to array with periods
+    ground_truth_error = (abs(period - ground_truth_period) / ground_truth_period)*100
+
+    # Update matrix
+    if progression == 0:
+        matrix[alphabet_size - 3][paa_division_integer - 1] = ground_truth_error
+    else:
+        #Update mean of particualr parameter combination
+        current_value = matrix[alphabet_size - 3][paa_division_integer - 1]
+        matrix[alphabet_size - 3][paa_division_integer - 1] = (current_value * progression + ground_truth_error) / (progression+1)
+
+
+def get_cell_progression(cell, progress_matrix):
+    global MIN_PAA, MIN_SAX
+
+    omega = cell[1] - MIN_PAA
+    alpha = cell[0] - MIN_SAX
+
+    return int(progress_matrix[alpha][omega])
+
+
+def get_next_orderly_cell(matrix, progress_matrix, cell_order, index_cell_order):
+    has_found_valid_cell = False
+    candidate_cell = -1
+
+    while not has_found_valid_cell:
+        index_cell_order = index_cell_order % len(cell_order)
+        candidate_cell = cell_order[index_cell_order]
+        index_cell_order += 1
+        has_found_valid_cell = get_cell_progression(candidate_cell, progress_matrix) < 6
+
+    return candidate_cell, index_cell_order
+
+
+def get_next_selected_cell(matrix, progress_matrix, index_selected_cells):
+    has_found_valid_cell = False
+    tried = 0
+    candidate_cell = -1
+
+    while (not has_found_valid_cell) and tried < len(selected_cells):
+        index_selected_cells = index_selected_cells % len(selected_cells)
+        candidate_cell = selected_cells[index_selected_cells]
+        index_selected_cells += 1
+        has_found_valid_cell = get_cell_progression(candidate_cell, progress_matrix) < 6
+        tried += 1
+
+    if has_found_valid_cell:
+        return candidate_cell, index_selected_cells
+    else:
+        return -1, index_selected_cells
+
+
+def process_next_cell(matrix, progress_matrix, cell_order, index_cell_order, index_selected_cells):
+    next_cell = -1
+
+    if len(selected_cells) > 0:
+        next_cell, index_selected_cells = get_next_selected_cell(matrix, progress_matrix, index_selected_cells)
+
+    if next_cell == -1:
+        next_cell, index_cell_order = get_next_orderly_cell(matrix, progress_matrix, cell_order, index_cell_order)
+
+    progression = get_cell_progression(next_cell, progress_matrix)
+    omega = next_cell[1] - MIN_PAA
+    alpha = next_cell[0] - MIN_SAX
+
+    process_cell(matrix, next_cell, progression)
+    progress_matrix[alpha][omega] = 1 if progression == -1 else progression + 1
+
+    return index_cell_order, index_selected_cells
+
+
+def get_cell_order():
+    global MIN_PAA, MAX_PAA, MIN_SAX, MAX_SAX
+
+    cells = []
+
+    #Create list with parameter combinations alphabets_size/PAA_division_interger for SAX
+    for alphabet_size in range(MIN_SAX, MAX_SAX + 1):
+        for paa_division_integer in range(MIN_PAA, MAX_PAA + 1):
+            cells += [(alphabet_size, paa_division_integer)]
+
+    no_of_samples = (MAX_PAA - MIN_PAA + 1) * (MAX_SAX - MIN_SAX + 1)
+
+    # Do Latin-Hypercube sampling
+    lhs_array = lhs(1, samples=no_of_samples, criterion='center')
+
+    #Sort Latin-Hypercube array
+    lhs_array_sorted = np.argsort(lhs_array.flatten())
+    lhs_final = []
+
+    #Add values of the cells array to lhs_final by using idexes from sorted Latin-Hypercube array
+    for index in range(no_of_samples) :
+        lhs_final.append(cells[lhs_array_sorted[index]])
+
+    return lhs_final
+
+def update_frontend(matrix, progression_matrix, max_iterations):
+    eel.sleep(0.01)
+    column_progression = np.mean(progression_matrix, axis=0) / max_iterations
+    row_progression = np.mean(progression_matrix, axis=1) / max_iterations
+    loadData(matrix.flatten(), column_progression, row_progression, progression_matrix)
+
+
+def build_matrix():
+    global MIN_PAA, MAX_PAA, MIN_SAX, MAX_SAX, selected_cells
+
+    selected_cells = []
+    processed_cell_counter = 0
+    cells_to_process = (MAX_PAA - MIN_PAA + 1) * (MAX_SAX - MIN_SAX + 1)
+    max_iterations = 6
+
     matrix = np.array([[-1.0 for j in range(14)] for _ in range(12)])
-    #Matrix to show progression of each cell in percentage
-    progression_matrix = matrix.copy()
+    progress_matrix = matrix.copy()
 
-    #Calculate matrix values for all lighcurves
-    for i in range(len (time_flux_tuple_arr)):
-        # get flux, time, duration and ground thruth for i'th tuple
-        ground_truth_period = ground_truth_arr[i]
-        actual_duration = actual_duration_arr[i]
-        time_flux_tuple = time_flux_tuple_arr[i]
-        time = time_flux_tuple[0]
-        norm_fluxes = time_flux_tuple[1]
-        dat_size = norm_fluxes.size
-        #Variable to keep count of number of cells finished in matrix
-        cell_counter = 0
-        cells = []
+    index_selected_cells = 0
+    index_cell_order = 0
 
-        #Create list with parameter combinations alphabets_size/PAA_division_interger for SAX
-        for alphabet_size in range(3, 15):
-            for paa_division_integer in range(1, 15):
-                cells += [(alphabet_size, paa_division_integer)]
+    while processed_cell_counter < cells_to_process * max_iterations:
+        cell_order = get_cell_order()
+        index_cell_order = 0
 
-        # Do Latin-Hypercube sampling
-        lhs_array = lhs(1, samples=168, criterion='center')
-        #Sort Latin-Hypercube array
-        lhs_array_sorted = np.argsort(lhs_array.flatten())
-        lhs_final = []
-        #Add values of the cells array to lhs_final by using idexes from sorted Latin-Hypercube array
-        for index in range(168) :
-            lhs_final.append(cells[lhs_array_sorted[index]])
-        cells = lhs_final
+        for _ in range(len(cell_order)):
+            index_cell_order, index_selected_cells = process_next_cell(matrix, progress_matrix, cell_order, index_cell_order, index_selected_cells)
+            processed_cell_counter += 1
 
-        c = []
-        #Find cells selected and put in front of array
-        for selected_cell in selected_cells:
-            #Remove and append to front of cells array
-            for cell in cells:
-                if cell[0] == selected_cell[0] and cell[1] == selected_cell[1]:
-                    c += [cell]
-
-        for selected_cell in c:
-            cells.remove(selected_cell)
-            cells[:0] = [selected_cell]
-
-        #Find Period for eaxh parameter combination alphabets_size/PAA_division_interger of SAX
-        for cell in range(len(cells)):
-            alphabet_size = cells[cell][0]
-            paa_division_integer = cells[cell][1]
-
-            #PAA transformation procedure
-            #Determine number of PAA points from the datasize devided by the paa_division_integer(number of points per segment)
-            paa_points = int(dat_size/paa_division_integer)
-            ## PAA transformation of data
-            PAA_array = paa(norm_fluxes, paa_points)
-            PAA_array = np.asarray(PAA_array, dtype=np.float32)
-
-            #SAX conversion
-            # Get breakpoints to convert segments into SAX string
-            breakPointsArray = pm.getBreakPointsArray(PAA_array, alphabet_size)
-            sax_output = ts_to_string(PAA_array, breakPointsArray)
-
-            # Convert to numeric SAX representation
-            numericSaxConversionArray = pm.getNumericSaxArray(breakPointsArray)
-            numeric_SAX_flux = []
-            for symbol_index in range(len(sax_output)):
-                letter_represented_as_int = pm.getAlfabetToNumericConverter(sax_output[symbol_index], numericSaxConversionArray)
-                numeric_SAX_flux.append(letter_represented_as_int)
-            numeric_SAX_flux= np.asarray(numeric_SAX_flux,dtype=np.float32)
-            numeric_SAX_time = time
-            # Repeat each element in array x times, where x is the number of PAA points
-            repeated_x_array= np.repeat(numeric_SAX_time,paa_points)
-            # How many elements each list should have
-            n = int(len(repeated_x_array)/paa_points)
-            final_x_array=[]
-            lists = list(pm.divide_array_in_chunks(repeated_x_array, n))
-            #take mean of all chunks
-            for l in lists:
-                final_x_array.append(np.mean(l))
-            numeric_SAX_time= final_x_array
-
-            #BoxLeastSquares applied to numeric SAX representation
-            BLS = BoxLeastSquares(numeric_SAX_time, numeric_SAX_flux)
-            periodogram = BLS.autopower(actual_duration)
-            #Find period with highest power in periodogram
-            best_period = np.argmax(periodogram.power)
-            period = periodogram.period[best_period]
-
-            #Add error in percentage between best peiord and ground truth to array with periods
-            ground_truth_error = (abs(period - ground_truth_period) / ground_truth_period)*100
-            #Update mean periods array
-            if i == 0:
-                matrix[alphabet_size - 3][paa_division_integer - 1] = ground_truth_error
-            else:
-                #Update mean of particualr parameter combination
-                current_value = matrix[alphabet_size - 3][paa_division_integer - 1]
-                matrix[alphabet_size - 3][paa_division_integer - 1] = (current_value * i + ground_truth_error) / (i+1)
-            #Update progression of cell in percentage
-            progression_matrix[alphabet_size - 3][paa_division_integer - 1] += (1/len(ground_truth_arr))
-            #Send mean periods array data to server every 2th iteration with loadData()
-            if(cell_counter % 2 ==0):
-                eel.sleep(0.01)
-                loadData(matrix.flatten(), np.mean(progression_matrix, axis=0) , np.mean(progression_matrix, axis=1),progression_matrix ) #load mean period array if full
-            cell_counter +=1
-        loadData(matrix.flatten(), np.mean(progression_matrix, axis=0) , np.mean(progression_matrix, axis=1) ,progression_matrix) #load mean period array if full
-        print("matrix ", i, " finished")
+            update_frontend(matrix, progress_matrix, max_iterations)
 
 
-def loadData(data_arr, avg_progression_columns, avg_progression_rows,progression_matrix):
-#def loadData(data_arr):
+def run_exo_vis():
+    print("Building period matrix ...")
+    build_matrix()
+    print("Done!")
+
+
+def loadData(data_arr, avg_progression_columns, avg_progression_rows, progression_matrix):
     data_dic = {}
     data_dic["matrix" ]= data_arr.tolist()
     data_dic["progression_column" ]= avg_progression_columns.tolist()
     data_dic["progression_row" ]= avg_progression_rows.tolist()
     data_dic["progression_matrix" ]= progression_matrix.tolist()
-    #eel.send_data(data.tolist())
+
     eel.send_data(data_dic)
 
 @eel.expose

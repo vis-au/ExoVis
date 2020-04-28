@@ -267,6 +267,13 @@ def loadData(data_arr, avg_progression_columns, avg_progression_rows,progression
 
 
 @eel.expose
+def send_selected_cells(new_selected_cells):
+    global selected_cells
+    print("received new cells")
+    selected_cells = new_selected_cells
+
+
+@eel.expose
 def register_client(message):
     print(message)
 

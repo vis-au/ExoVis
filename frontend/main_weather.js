@@ -59,8 +59,8 @@ function render(data_dictionary) {
   const matrixData = data_dictionary["matrix"];
   const progressData = data_dictionary["progression_matrix"];
   const data = getTransformedData(matrixData, progressData);
-  const meanColumnProgress = data_dictionary["progression_column"].map(d => 1 - Math.abs(d));
-  const meanRowProgress = data_dictionary["progression_row"].map(d => 1 - Math.abs(d));
+  const meanColumnProgress = data_dictionary["progression_column"].map(d => Math.abs(d));
+  const meanRowProgress = data_dictionary["progression_row"].map(d => Math.abs(d));
 
   updateMatrix(data);
   renderBars(meanColumnProgress, meanRowProgress);
@@ -146,7 +146,7 @@ function selectRow(rowIndex) {
 
 function updateSelectedCellStatus() {
   svg.selectAll("rect.cell")
-    .attr("stroke", d => getIndexInSelected(d) > -1 ? "white" : "none")
+    .attr("stroke", d => getIndexInSelected(d) > -1 ? "firebrick" : "none")
 }
 
 function getIndexInSelected(cell) {
@@ -175,7 +175,7 @@ function updateMatrix(data) {
     .attr("width", xStep)
     .attr("height", yStep)
     .attr("fill", d => d.error === -1 ? "transparent" : color(d.error))
-    .attr("stroke-width", 5);
+    .attr("stroke-width", 2);
 
   updateSelectedCellStatus();
 
@@ -337,9 +337,9 @@ function getTransformedData(matrixData, progressData) {
 
 
 // setInterval(() => {
-  // render(getDummyData());
+//   render(getDummyData());
 // }, 500);
 
 window.eel.set_host("ws://localhost:8080");
-window.eel.register_client("hello there");
+window.eel.register_client("registered frontend.");
 window.eel.expose(render, "send_data");

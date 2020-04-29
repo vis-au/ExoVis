@@ -277,11 +277,13 @@ def run_exo_vis():
 
 
 def loadData(data_arr, avg_progression_columns, avg_progression_rows, progression_matrix):
+    global MAX_ITERATIONS
+
     data_dic = {}
-    data_dic["matrix" ]= data_arr.tolist()
-    data_dic["progression_column" ]= avg_progression_columns.tolist()
-    data_dic["progression_row" ]= avg_progression_rows.tolist()
-    data_dic["progression_matrix" ]= progression_matrix.tolist()
+    data_dic["matrix"] = data_arr.tolist()
+    data_dic["progression_column"] = avg_progression_columns.tolist()
+    data_dic["progression_row"] = avg_progression_rows.tolist()
+    data_dic["progression_matrix"] = (progression_matrix / MAX_ITERATIONS).tolist()
 
     eel.send_data(data_dic)
 

@@ -149,6 +149,18 @@ function updateSelectedCellStatus() {
     .attr("stroke", d => getIndexInSelected(d) > -1 ? "firebrick" : "none")
 }
 
+function showTooltip(d) {
+  d3.select("#tooltip")
+    .style("display", "block")
+    .style("left", d3.event.clientX + 10 + "px")
+    .style("top", d3.event.clientY + 10 + "px")
+    .text(`${parseInt(d.progress * 10000) / 100}%`);
+}
+
+function hideTooltip() {
+  d3.select("#tooltip").style("display", "none");
+}
+
 function getIndexInSelected(cell) {
   const { alpha, omega } = cell;
 
@@ -161,14 +173,15 @@ function updateMatrix(data) {
 
   svg.selectAll("g.matrix").remove();
 
-  const matrix = svg.append("g").attr("class", "matrix");
+  const matrix = svg.append("g")
+    .attr("class", "matrix")
+    .on("mouseleave", hideTooltip);
 
   const cell = matrix.selectAll("g.cell").data(data).join("g")
     .attr("class", "cell")
     .attr("transform", d => `translate(${scaleX(d.omega)}, ${scaleY(d.alpha)})`)
     .on("click", toggleSelectedCell)
-
-  cell.append("title").text(d => d.progress);
+    .on("mouseenter", d => showTooltip(d));
 
   cell.append("rect")
     .attr("class", "cell")
@@ -319,14 +332,14 @@ function getDummyData() {
 function getTransformedData(matrixData, progressData) {
   const transformedData = [];
 
-  for (let paa = 0; paa < MAX_PAA - MIN_PAA + 1; paa++) {
-    for (let sax = 0; sax < MAX_SAX - MIN_SAX + 1; sax++) {
-      if (matrixData[paa * MAX_PAA + sax] !== undefined) {
+  for (let paa = MIN_PAA; paa < MAX_PAA + 1; paa++) {
+    for (let sax = MIN_SAX; sax < MAX_SAX + 1; sax++) {
+      if (matrixData[(sax - MIN_SAX) * (MAX_SAX-MIN_SAX + 1) + (paa - MIN_PAA)] !== undefined) {
         transformedData.push({
-          "alpha": MAX_SAX - sax,
-          "omega": MAX_PAA - paa,
-          "error": matrixData[paa * MAX_PAA + sax],
-          "progress": 1 + progressData[sax][paa]
+          "alpha": sax,
+          "omega": paa,
+          "error": matrixData[(sax - MIN_SAX) * (MAX_SAX-MIN_SAX + 1) + (paa - MIN_PAA)],
+          "progress": 1 - progressData[sax-MIN_SAX][paa-MIN_PAA]
         });
       }
     }

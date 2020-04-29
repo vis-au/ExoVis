@@ -149,6 +149,18 @@ function updateSelectedCellStatus() {
     .attr("stroke", d => getIndexInSelected(d) > -1 ? "firebrick" : "none")
 }
 
+function showTooltip(d) {
+  d3.select("#tooltip")
+    .style("display", "block")
+    .style("left", d3.event.clientX + 10 + "px")
+    .style("top", d3.event.clientY + "px")
+    .text(`${parseInt(d.progress * 10000) / 100}%`);
+}
+
+function hideTooltip() {
+  d3.select("#tooltip").style("display", "none");
+}
+
 function getIndexInSelected(cell) {
   const { alpha, omega } = cell;
 
@@ -161,14 +173,15 @@ function updateMatrix(data) {
 
   svg.selectAll("g.matrix").remove();
 
-  const matrix = svg.append("g").attr("class", "matrix");
+  const matrix = svg.append("g")
+    .attr("class", "matrix")
+    .on("mouseleave", hideTooltip);
 
   const cell = matrix.selectAll("g.cell").data(data).join("g")
     .attr("class", "cell")
     .attr("transform", d => `translate(${scaleX(d.omega)}, ${scaleY(d.alpha)})`)
     .on("click", toggleSelectedCell)
-
-  cell.append("title").text(d => d.progress);
+    .on("mouseenter", d => showTooltip(d));
 
   cell.append("rect")
     .attr("class", "cell")

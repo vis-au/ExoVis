@@ -19,11 +19,11 @@ We recommend using a basic [Anaconda installation](https://docs.conda.io/en/late
 
 ### Installing dependencies
 
-Then, we need to install the required dependencies. 
+Then, we need to install the required dependencies.
 We do so by running in the terminal:
 
 ```bash
-pip install lightkurve numpy astropy eel saxpy scipy pyDOE 
+pip install lightkurve numpy astropy eel saxpy scipy pyDOE
 ```
 
 
@@ -48,7 +48,7 @@ python server_weather.py
 When running these scripts for the first time may take a while, as the required data will be downloaded first.
 Once the data is downloaded, the terminal will show the following message:
 ```
-Backend launched successfully. Waiting for requests ... 
+Backend launched successfully. Waiting for requests ...
 ```
 
 ### Launching the frontend
@@ -63,12 +63,16 @@ The matrix should now start generating, with the backend script in the terminal 
 In order to cite this project in your work, we recommend using the following bibtex entry:
 
 ```bib
-@inproceedings{exovis2020,
+@inproceedings {Loeschcke,
+  booktitle = {EuroVis Workshop on Visual Analytics (EuroVA)},
+  editor = {Turkay, Cagatay and Vrotsou, Katerina},
+  title = {{Progressive Parameter Space Visualization for Task-Driven SAX Configuration}},
+  author = {Loeschcke, Sebastian and Hogr\"{a}fer, Marius and Schulz, Hans-J\"{o}rg},
   year = {2020},
-  author = {Sebastian Bugge Loeschke and Marius Hogr{\"{a}}fer and Hans-J{\"{o}}rg Schulz},
-  title = {Progressive Parameter Space Visualization for Task-Driven SAX Configuration},
-  booktitle = {Proc. of the EuroVis Workshop on Visual Analytics (EuroVA'20)},
-  editor = {Cagatay Turkay and Katerina Vrotsou}
+  publisher = {The Eurographics Association},
+  ISSN = {2664-4487},
+  ISBN = {978-3-03868-116-8},
+  DOI = {10.2312/eurova.20201085}
 }
 ```
 
